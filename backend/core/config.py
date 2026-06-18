@@ -75,9 +75,6 @@ class Settings(BaseSettings):
     gitlab_client_id: str = ""
     gitlab_client_secret: str = ""
 
-    # --- Redis ---
-    redis_url: str = "redis://localhost:6379/0"
-
     # --- Security ---
     encryption_key: str = ""  # AES-256 key for encrypting VCS tokens at rest
 

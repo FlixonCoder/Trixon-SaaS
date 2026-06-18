@@ -8,7 +8,6 @@ Supabase and Redis, and reports the application version.
 from fastapi import APIRouter
 
 from backend.core.config import get_settings
-from backend.core.redis_client import check_redis_health
 from backend.core.supabase_client import check_supabase_health
 
 router = APIRouter()
@@ -26,17 +25,12 @@ async def health_check() -> dict:
     settings = get_settings()
 
     supabase_ok = await check_supabase_health()
-    redis_ok = await check_redis_health()
 
-    # Overall status is "ok" if the app itself is running.
-    # Individual service statuses are reported separately so
-    # the frontend and monitoring can act on partial outages.
     return {
         "status": "ok",
         "version": settings.app_version,
         "service": settings.app_name,
         "supabase": supabase_ok,
-        "redis": redis_ok,
     }
 
 

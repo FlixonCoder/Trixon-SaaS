@@ -16,7 +16,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from pydantic import BaseModel
 
 from backend.core.auth import CurrentUser
@@ -394,6 +394,7 @@ async def get_report_catalog(
 async def add_reports_to_snapshot(
     project_id: str,
     body: AddReportsRequest,
+    background_tasks: BackgroundTasks,
     user: CurrentUser = None,
 ):
     user_id = user["id"] if user else None
@@ -447,24 +448,14 @@ async def add_reports_to_snapshot(
         raise HTTPException(status_code=400, detail="All requested reports already exist for this snapshot")
 
     # Queue a targeted analysis job (only new report types)
-    from backend.api.webhooks import _queue_analysis
-    # We create a minimal new "add-reports" job by re-using the existing analysis_id
-    # To avoid complications, we create a special partial analysis
     try:
-        from rq import Queue
-        from redis import Redis
-        from backend.core.config import get_settings
-        settings = get_settings()
-
-        redis = Redis.from_url(settings.redis_url)
-        q = Queue("default", connection=redis)
-        q.enqueue(
-            "backend.workers.analyze.analyze_project",
-            project_id,
-            analysis_id,  # Re-use existing analysis_id
+        from backend.workers.analyze import run_analysis_job
+        background_tasks.add_task(
+            run_analysis_job,
+            project_id=project_id,
+            analysis_id=analysis_id,  # Re-use existing analysis_id
             report_types=new_types,
-            trigger_source="add_reports",
-            job_timeout=600,
+            trigger_source="add_reports"
         )
     except Exception as e:
         logger.error(f"Failed to queue add-reports job: {e}")

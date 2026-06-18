@@ -16,7 +16,7 @@ import secrets
 from datetime import datetime, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, BackgroundTasks
 from pydantic import BaseModel
 
 from backend.core.auth import CurrentUser
@@ -207,6 +207,7 @@ async def disable_webhook(
 @router.post("/webhooks/github")
 async def receive_github_webhook(
     request: Request,
+    background_tasks: BackgroundTasks,
     x_github_event: str = Header(default=""),
     x_hub_signature_256: str = Header(default=""),
 ):
@@ -290,6 +291,7 @@ async def receive_github_webhook(
         commit_sha=commit_sha,
         commit_message=commit_message,
         commit_author=commit_author,
+        background_tasks=background_tasks,
         trigger_source="webhook",
     )
 
@@ -303,6 +305,7 @@ async def receive_github_webhook(
 @router.post("/webhooks/gitlab")
 async def receive_gitlab_webhook(
     request: Request,
+    background_tasks: BackgroundTasks,
     x_gitlab_event: str = Header(default=""),
     x_gitlab_token: str = Header(default=""),
 ):
@@ -367,6 +370,7 @@ async def receive_gitlab_webhook(
         commit_sha=commit_sha,
         commit_message=commit_message,
         commit_author=commit_author,
+        background_tasks=background_tasks,
         trigger_source="webhook",
     )
 
@@ -382,9 +386,10 @@ def _queue_analysis(
     commit_sha: str,
     commit_message: str,
     commit_author: str,
+    background_tasks: BackgroundTasks,
     trigger_source: str = "webhook",
 ) -> None:
-    """Create analysis record and enqueue the RQ job."""
+    """Create analysis record and add to BackgroundTasks."""
     from datetime import datetime, timezone
     supabase = get_supabase()
 
@@ -405,26 +410,19 @@ def _queue_analysis(
         logger.error(f"Failed to create analysis record for project {project_id}")
         return
 
-    # Enqueue RQ job
     try:
-        from rq import Queue
-        from redis import Redis
-        from backend.core.config import get_settings
-        settings = get_settings()
-
-        redis = Redis.from_url(settings.redis_url)
-        q = Queue("default", connection=redis)
-        q.enqueue(
-            "backend.workers.analyze.analyze_project",
-            project_id,
-            analysis_id,
+        from backend.workers.analyze import run_analysis_job
+        background_tasks.add_task(
+            run_analysis_job,
+            project_id=project_id,
+            analysis_id=analysis_id,
+            report_types=None,
             commit_sha=commit_sha,
             commit_message=commit_message,
             commit_author=commit_author,
             trigger_source=trigger_source,
-            job_timeout=600,
         )
-        logger.info(f"Enqueued analysis job for project {project_id}, analysis {analysis_id}")
+        logger.info(f"Background task added for analysis {analysis_id}")
     except Exception as e:
         logger.error(f"Failed to enqueue analysis job: {e}")
 

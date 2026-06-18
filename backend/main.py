@@ -21,8 +21,8 @@ from backend.api.webhooks import router as webhooks_router       # v3.0
 from backend.api.action_items import router as action_items_router  # v3.0 + v3.1
 from backend.api.chat import router as chat_router                  # v3.0
 from backend.core.config import get_settings
-from backend.core.redis_client import get_redis
 from backend.core.supabase_client import get_supabase
+from backend.core.key_pool_client import init_key_pool
 
 # Configure logging
 logging.basicConfig(
@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
     """
     Application lifespan handler.
 
-    On startup: initializes Supabase and Redis clients, logs status.
+    On startup: initializes Supabase and the InProcessKeyPool.
     On shutdown: cleanup resources.
     """
     settings = get_settings()
@@ -51,12 +51,12 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("✗ Supabase not configured — database features disabled")
 
-    # Initialize Redis client
-    redis = get_redis()
-    if redis:
-        logger.info("✓ Redis client ready")
-    else:
-        logger.warning("✗ Redis not available — background jobs disabled")
+    # Initialize Key Pool
+    try:
+        init_key_pool(settings.effective_groq_api_keys)
+        logger.info(f"✓ InProcessKeyPool initialized with {len(settings.effective_groq_api_keys)} keys")
+    except Exception as e:
+        logger.error(f"✗ Failed to initialize InProcessKeyPool: {e}")
 
     yield
 

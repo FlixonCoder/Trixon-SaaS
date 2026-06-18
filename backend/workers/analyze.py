@@ -44,7 +44,7 @@ ALL_REPORT_TYPES = [
 DEFAULT_REPORTS = ["executive_summary", "architecture", "tech_debt"]
 
 
-def analyze_project(
+def run_analysis_job(
     project_id: str,
     analysis_id: str,
     report_types: list[str] | None = None,

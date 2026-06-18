@@ -8,7 +8,7 @@ Creating a project enqueues an analysis job automatically.
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, BackgroundTasks
 from pydantic import BaseModel
 
 from backend.core.auth import CurrentUser
@@ -334,7 +334,12 @@ async def get_project_access_level(user: CurrentUser, project_id: str) -> dict:
 
 
 @router.post("/{project_id}/analyze", response_model=AnalysisStatus, status_code=status.HTTP_202_ACCEPTED)
-async def trigger_analysis(user: CurrentUser, project_id: str, body: AnalyzeRequest | None = None) -> AnalysisStatus:
+async def trigger_analysis(
+    user: CurrentUser, 
+    project_id: str, 
+    background_tasks: BackgroundTasks,
+    body: AnalyzeRequest | None = None
+) -> AnalysisStatus:
     """Trigger a new analysis run for an existing project."""
     supabase = get_supabase()
     if supabase is None:
@@ -407,15 +412,19 @@ async def trigger_analysis(user: CurrentUser, project_id: str, body: AnalyzeRequ
         )
         analysis = analysis_resp.data[0]
         
-        _enqueue_analysis(
-            project_id,
-            analysis["id"],
-            selected,
-            body.commit_sha if body else None,
-            body.commit_message if body else None,
-            body.commit_author if body else None,
-            body.trigger_source if body else "manual",
+        from backend.workers.analyze import run_analysis_job
+        background_tasks.add_task(
+            run_analysis_job,
+            project_id=project_id,
+            analysis_id=analysis["id"],
+            report_types=selected,
+            commit_sha=body.commit_sha if body else None,
+            commit_message=body.commit_message if body else None,
+            commit_author=body.commit_author if body else None,
+            trigger_source=body.trigger_source if body else "manual"
         )
+        logger.info(f"Background task added for analysis {analysis['id']}")
+
         return _build_analysis_status(analysis)
 
     except Exception as e:
@@ -426,44 +435,6 @@ async def trigger_analysis(user: CurrentUser, project_id: str, body: AnalyzeRequ
 # -----------------------------------------------
 # Helpers
 # -----------------------------------------------
-
-def _enqueue_analysis(
-    project_id: str,
-    analysis_id: str,
-    report_types: list[str] | None = None,
-    commit_sha: str | None = None,
-    commit_message: str | None = None,
-    commit_author: str | None = None,
-    trigger_source: str = "manual",
-) -> None:
-    """Enqueue the analyze_project job via RQ. Logs a warning if Redis is unavailable."""
-    try:
-        redis_conn = get_redis()
-        if redis_conn is None:
-            logger.warning(
-                f"Redis unavailable — analysis {analysis_id} queued but will not run. "
-                "Start Redis with: docker-compose up redis"
-            )
-            return
-
-        from rq import Queue
-        from backend.workers.analyze import analyze_project
-        q = Queue(connection=redis_conn)
-        q.enqueue(
-            analyze_project,
-            project_id,
-            analysis_id,
-            report_types,
-            commit_sha,
-            commit_message,
-            commit_author,
-            trigger_source,
-            job_timeout=600,
-        )
-        logger.info(f"Enqueued analysis job {analysis_id} for project {project_id}")
-
-    except Exception as e:
-        logger.error(f"Failed to enqueue analysis {analysis_id}: {e}")
 
 
 def _build_analysis_status(a: dict | None) -> AnalysisStatus | None:
