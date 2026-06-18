@@ -105,18 +105,23 @@ async def update_profile(
         )
 
     try:
+        # Add the user ID to the update data so upsert knows which record to update/insert
+        update_data["id"] = user["id"]
+        
         result = (
             supabase.table("profiles")
-            .update(update_data)
-            .eq("id", user["id"])
+            .upsert(update_data)
             .execute()
         )
 
         if not result.data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Profile not found",
+                detail="Profile not found and failed to create",
             )
+
+        from backend.services.analytics import track_event
+        track_event(user["id"], "signup_completed")
 
         return ProfileResponse(**result.data[0])
 

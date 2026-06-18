@@ -20,7 +20,6 @@ Invoked via: rq.Queue.enqueue(analyze_project, project_id, analysis_id, ...)
 """
 
 import logging
-import time
 from datetime import datetime, timezone
 
 from backend.core.encryption import decrypt_token
@@ -252,6 +251,14 @@ def run_analysis_job(
             "stats": extraction.stats,
         })
 
+        try:
+            supabase.table("code_snapshots").insert({
+                "analysis_id": analysis_id,
+                "key_files": extraction.key_files
+            }).execute()
+        except Exception as e:
+            logger.error(f"[{analysis_id}] Failed to save code snapshot: {e}")
+
         # -----------------------------------------------
         # Step 2.5: Build AI context layers ONCE (v3.1)
         # -----------------------------------------------
@@ -402,6 +409,21 @@ def run_analysis_job(
             f"[{analysis_id}] Analysis complete. "
             f"Reports generated: {len(successful_reports)}/{len(selected_reports)}"
         )
+
+        try:
+            from backend.services.analytics import track_event
+            duration_seconds = (datetime.now(timezone.utc) - datetime.fromisoformat(update_data["completed_at"].replace("Z", "+00:00"))).total_seconds()
+            track_event(
+                user_id=project.get("user_id"),
+                event_type="analysis_completed",
+                project_id=project_id,
+                properties={
+                    "duration_seconds": duration_seconds,
+                    "reports_generated": len(successful_reports)
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to track analysis_completed: {e}")
 
         # -----------------------------------------------
         # Step 7: Extract action items from reports (v3.0)
@@ -574,7 +596,6 @@ def _send_changelog_email(supabase, project_id: str, analysis_id: str, repo_name
     repo_display = repo_name.split("/")[-1] if "/" in repo_name else repo_name
 
     import httpx
-    import json
     
     subject = f"[Trixon] {repo_display} analysis complete — {verdict_display}"
 

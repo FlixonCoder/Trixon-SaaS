@@ -12,6 +12,7 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGithubLoading, setIsGithubLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -32,12 +33,8 @@ export default function SignupPage() {
       setError(error.message);
       setIsLoading(false);
     } else {
-      // Automatically log them in
-      await supabase.auth.signInWithPassword({ email, password });
-      
-      // Direct them to onboarding page
-      router.push("/onboarding");
-      router.refresh();
+      setIsSuccess(true);
+      setIsLoading(false);
     }
   };
 
@@ -57,6 +54,31 @@ export default function SignupPage() {
       setIsGithubLoading(false);
     }
   };
+
+  if (isSuccess) {
+    return (
+      <div className="text-center py-4">
+        <div className="mb-8">
+          <div className="mx-auto w-12 h-12 bg-[#27272a]/10 rounded-full flex items-center justify-center mb-6">
+            <Mail className="w-6 h-6 text-obsidian" />
+          </div>
+          <h1 className="text-2xl font-bold text-obsidian mb-3">Check your email</h1>
+          <p className="text-ash text-sm leading-relaxed">
+            We sent a verification link to <br />
+            <span className="font-medium text-obsidian">{email}</span>
+            <br /><br />
+            Please verify your email to continue.
+          </p>
+        </div>
+        <Link
+          href="/login"
+          className="inline-flex w-full items-center justify-center gap-2 bg-obsidian text-paper-raised px-4 py-2.5 rounded-lg font-medium hover:bg-[#27272a] transition-all hover:shadow-lg hover:shadow-obsidian/20"
+        >
+          Return to login
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div>

@@ -1,7 +1,8 @@
 """
-DEPRECATED — Redis and RQ are no longer used.
-This module is kept temporarily to avoid breaking any stray imports,
-but all functions return None.
+Trixon Backend — Redis Client
+
+NOT CURRENTLY USED. Kept for future horizontal scaling and rate-limiting.
+See trixon-cleanup-audit-prompt.md for context.
 """
 
 def get_redis():

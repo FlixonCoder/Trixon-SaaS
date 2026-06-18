@@ -25,4 +25,5 @@ class ProfileResponse(BaseModel):
     role: str | None = None
     primary_goal: str | None = None
     plan: str = "free"
+    is_admin: bool = False
     created_at: str | None = None

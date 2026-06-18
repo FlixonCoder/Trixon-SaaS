@@ -62,7 +62,7 @@ export function AnalysisProgress({ analysisId, projectId }: AnalysisProgressProp
           setIsQueued(false);
           setProgress(100);
           clearInterval(intervalRef.current!);
-          setTimeout(() => router.push(`/projects/${projectId}?view=results`), 1200);
+          setTimeout(() => router.push(`/projects/${projectId}`), 1200);
         } else if (result.status === "failed") {
           clearInterval(intervalRef.current!);
           setError(result.error_message || "Analysis failed. Please try again.");
@@ -98,7 +98,7 @@ export function AnalysisProgress({ analysisId, projectId }: AnalysisProgressProp
       <div className="bg-paper-raised border border-paper-sunken rounded-2xl p-10 text-center max-w-lg mx-auto">
         <CheckCircle className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
         <h2 className="text-xl font-semibold text-obsidian mb-2">Analysis Complete!</h2>
-        <p className="text-sm text-ash">Taking you to your results…</p>
+        <p className="text-sm text-ash">Taking you to your dashboard…</p>
       </div>
     );
   }

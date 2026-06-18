@@ -6,7 +6,7 @@ No JWT authentication required.
 """
 
 import logging
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from backend.core.supabase_client import get_supabase

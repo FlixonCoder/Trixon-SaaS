@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { ReportActions } from "@/components/report-actions";
 import { ExplainSimply } from "@/components/explain-simply";
 import { StickyEngageBar } from "@/components/sticky-engage-bar";
+import { ReportTracker } from "./report-tracker";
 
 interface PageProps {
   params: Promise<{ id: string; type: string }>;
@@ -671,6 +672,8 @@ export default async function ReportPage({ params, searchParams }: PageProps) {
 
         {/* Sticky engage bar */}
         <StickyEngageBar />
+        
+        <ReportTracker reportType={type} projectId={id} token={session.access_token} />
       </main>
     </div>
   );

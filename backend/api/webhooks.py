@@ -16,7 +16,7 @@ import secrets
 from datetime import datetime, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, BackgroundTasks
+from fastapi import APIRouter, Header, HTTPException, Request, BackgroundTasks
 from pydantic import BaseModel
 
 from backend.core.auth import CurrentUser
@@ -128,6 +128,9 @@ async def enable_webhook(
     created = result.data[0] if result.data else record
 
     logger.info(f"Webhook enabled for project {project_id} on {platform} (id: {webhook_id})")
+
+    from backend.services.analytics import track_event
+    track_event(user_id, "webhook_enabled", project_id=project_id)
 
     return {
         "status": "enabled",

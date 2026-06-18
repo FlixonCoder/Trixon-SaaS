@@ -187,7 +187,7 @@ export default function TimelinePage() {
 
   return (
     <div className="min-h-screen bg-paper-sunken">
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+      <main className="w-full mx-auto px-6 py-10">
         <ProjectLayout project={project} analysis={analysis} activeTab="timeline">
           <div className="mt-6 space-y-6">
             <div>

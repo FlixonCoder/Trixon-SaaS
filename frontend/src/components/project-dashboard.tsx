@@ -27,10 +27,11 @@ import {
   Minus,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
-import { api, type Project, type AnalysisStatus } from "@/lib/api";
+import { api, type Project, type AnalysisStatus, type CatalogItem } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 import { TrixonEngageCTA } from "@/components/trixon-engage-cta";
 import { ProjectLayout } from "@/components/project-layout";
+import { TutorialOverlay } from "@/components/tutorial-overlay";
 
 
 function ClientDate({ date }: { date: string }) {
@@ -187,7 +188,7 @@ function ScoreRing({ score, label, size = 80, sparklineData = null }: { score: n
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
           <span className="text-base font-bold font-mono" style={{ color: score === null ? "var(--color-ash)" : color }}>
-            {score !== null ? score : "-"}
+            {score !== null ? score : "N/A"}
           </span>
         </div>
       </div>
@@ -267,6 +268,7 @@ export function ProjectDashboard({ project, analysis: initialAnalysis, hasFullAc
   const [quickWinsCount, setQuickWinsCount] = useState(0);
   const [latestDiff, setLatestDiff] = useState<any | null>(null);
   const [timeline, setTimeline] = useState<any[]>([]);
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
 
   const stats = initialAnalysis.stats;
   const languageBreakdown = initialAnalysis.language_breakdown || {};
@@ -292,6 +294,14 @@ export function ProjectDashboard({ project, analysis: initialAnalysis, hasFullAc
         if (initialAnalysis.snapshot_number && initialAnalysis.snapshot_number > 1) {
           const diff = await api.getAnalysisDiff(session.access_token, initialAnalysis.id);
           setLatestDiff(diff);
+        }
+
+        // Fetch Catalog
+        try {
+          const catRes = await api.getReportCatalog(session.access_token);
+          setCatalog(catRes.catalog || []);
+        } catch (e) {
+          console.error("Failed to fetch report catalog:", e);
         }
       } catch (e) {
         console.error("Dashboard metadata load failed:", e);
@@ -357,6 +367,7 @@ export function ProjectDashboard({ project, analysis: initialAnalysis, hasFullAc
 
   return (
     <ProjectLayout project={project} analysis={initialAnalysis} activeTab="dashboard">
+      <TutorialOverlay isFirstAnalysis={initialAnalysis.snapshot_number === 1} />
       <div className="space-y-6 mt-6">
         {/* v3.0 Enriched Navigation & Info Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -542,19 +553,22 @@ export function ProjectDashboard({ project, analysis: initialAnalysis, hasFullAc
         <div className="mb-6">
           <h3 className="text-xs font-semibold text-ash uppercase tracking-wider mb-3">Available Now</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {REPORT_CONFIG.filter(r => r.type === "executive_summary" || r.type === "team_readiness" || hasFullAccess).map((report) => {
-              const Icon = report.icon;
+            {(catalog.length > 0 ? catalog : REPORT_CONFIG.map(r => ({ id: r.type, title: r.label, description: r.description })) as any)
+              .filter((c: any) => (initialAnalysis.selected_reports || ["executive_summary", "architecture", "tech_debt"]).includes(c.id || c.type))
+              .map((report: any) => {
+              const conf = REPORT_CONFIG.find(r => r.type === (report.id || report.type)) || REPORT_CONFIG[0];
+              const Icon = conf.icon;
               return (
                 <Link
-                  key={report.type}
-                  href={`/projects/${project.id}/reports/${report.type}?analysis=${initialAnalysis.id}`}
-                  className={`bg-gradient-to-br ${report.gradient} border border-paper-sunken rounded-xl p-5 hover:shadow-md transition-all group block`}
+                  key={report.id || report.type}
+                  href={`/projects/${project.id}/reports/${report.id || report.type}?analysis=${initialAnalysis.id}`}
+                  className={`bg-gradient-to-br ${conf.gradient} border border-paper-sunken rounded-xl p-5 hover:shadow-md transition-all group block`}
                 >
                   <div className="flex items-center gap-3 mb-3">
                     <div className={`w-9 h-9 bg-paper-raised rounded-lg flex items-center justify-center shadow-sm`}>
-                      <Icon className={`w-4 h-4 ${report.iconColor}`} />
+                      <Icon className={`w-4 h-4 ${conf.iconColor}`} />
                     </div>
-                    <h3 className="font-semibold text-sm text-obsidian leading-tight">{report.label}</h3>
+                    <h3 className="font-semibold text-sm text-obsidian leading-tight">{report.title || report.label}</h3>
                   </div>
                   <p className="text-xs text-ash leading-relaxed">{report.description}</p>
                   <div className="mt-4 text-xs font-medium text-zinc-800 group-hover:text-zinc-950 group-hover:underline flex items-center gap-1">
@@ -574,18 +588,21 @@ export function ProjectDashboard({ project, analysis: initialAnalysis, hasFullAc
               <Lock className="w-3.5 h-3.5" /> Locked (Requires Full Audit)
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 opacity-60 pointer-events-none">
-              {REPORT_CONFIG.filter(r => r.type !== "executive_summary" && r.type !== "team_readiness").map((report) => {
-                const Icon = report.icon;
+              {(catalog.length > 0 ? catalog : REPORT_CONFIG.map(r => ({ id: r.type, title: r.label, description: r.description })) as any)
+                .filter((c: any) => !(initialAnalysis.selected_reports || ["executive_summary", "architecture", "tech_debt"]).includes(c.id || c.type))
+                .map((report: any) => {
+                const conf = REPORT_CONFIG.find(r => r.type === (report.id || report.type)) || REPORT_CONFIG[0];
+                const Icon = conf.icon;
                 return (
                   <div
-                    key={report.type}
+                    key={report.id || report.type}
                     className={`bg-paper-sunken border border-paper-sunken rounded-xl p-5 transition-all block relative`}
                   >
                     <div className="flex items-center gap-3 mb-3">
                       <div className={`w-9 h-9 bg-paper-raised rounded-lg flex items-center justify-center shadow-sm opacity-50`}>
                         <Icon className={`w-4 h-4 text-ash`} />
                       </div>
-                      <h3 className="font-semibold text-sm text-obsidian leading-tight">{report.label}</h3>
+                      <h3 className="font-semibold text-sm text-obsidian leading-tight">{report.title || report.label}</h3>
                     </div>
                     <p className="text-xs text-ash leading-relaxed">{report.description}</p>
                     <div className="absolute top-4 right-4">

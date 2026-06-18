@@ -1,6 +1,8 @@
 """
-DEPRECATED — analysis jobs now run via FastAPI BackgroundTasks in main.py.
-This file is no longer used for background job processing.
+Trixon Backend — RQ Worker
+
+NOT CURRENTLY USED. Kept for future horizontal scaling.
+See trixon-cleanup-audit-prompt.md for context.
 """
 
 import logging

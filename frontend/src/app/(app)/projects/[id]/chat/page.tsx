@@ -42,8 +42,8 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="min-h-screen bg-paper-sunken">
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+    <div className="min-h-[calc(100vh-4rem)] bg-paper-sunken flex flex-col">
+      <main className="w-full mx-auto px-6 py-6 flex-1 flex flex-col">
         <ProjectLayout project={project} analysis={analysis} activeTab="chat">
           <div className="mt-6 flex flex-col h-[650px] overflow-hidden">
             <ProjectChat

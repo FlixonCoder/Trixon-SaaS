@@ -173,9 +173,29 @@ async def get_report(
     analysis = _verify_analysis_ownership(supabase, analysis_id, user["id"])
 
     # Access control: check if user has purchased full audit for this project
-    from backend.api.checkout import check_report_access
-    project_id = analysis.get("project_id", "")
-    if not check_report_access(project_id, report_type, user["id"]):
+    from backend.core.config import get_settings
+    settings = get_settings()
+    has_full_access = False
+    
+    if settings.beta_mode:
+        has_full_access = True
+    else:
+        profile_resp = (
+            supabase.table("profiles")
+            .select("plan")
+            .eq("id", user["id"])
+            .maybe_single()
+            .execute()
+        )
+        plan = "free"
+        if profile_resp and profile_resp.data:
+            plan = profile_resp.data.get("plan", "free")
+        has_full_access = plan == "pro"
+
+    # If the user doesn't have full access, they can only view free reports
+    is_free_report = report_type in {"executive_summary", "team_readiness"}
+    if not has_full_access and not is_free_report:
+        from fastapi import status
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail={
@@ -216,13 +236,16 @@ async def get_report(
 # Admin Only
 # -----------------------------------------------
 
+from fastapi import Depends
+from backend.api.health import verify_admin
+
 class BackfillResponse(BaseModel):
     processed_analyses: int
     items_created: int
     skipped: int
 
-@router.post("/admin/backfill-action-items", response_model=BackfillResponse)
-async def backfill_action_items(user: CurrentUser) -> BackfillResponse:
+@router.post("/admin/backfill-action-items", response_model=BackfillResponse, dependencies=[Depends(verify_admin)])
+async def backfill_action_items() -> BackfillResponse:
     """
     One-time backfill route to extract action items from existing stored reports.
     Requires user to have admin flag (or for this to be called locally).
@@ -280,8 +303,8 @@ class ScoreBackfillResponse(BaseModel):
     fixed_count: int
 
 
-@router.post("/admin/backfill-analysis-scores", response_model=ScoreBackfillResponse)
-async def backfill_analysis_scores(user: CurrentUser) -> ScoreBackfillResponse:
+@router.post("/admin/backfill-analysis-scores", response_model=ScoreBackfillResponse, dependencies=[Depends(verify_admin)])
+async def backfill_analysis_scores() -> ScoreBackfillResponse:
     """
     For every analysis, derive the TRUE selected_reports list from the reports
     table (source of truth, never wiped), and recompute scores.

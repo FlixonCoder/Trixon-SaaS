@@ -12,12 +12,9 @@ We verify them by fetching the JWKS from Supabase's auth endpoint.
 import logging
 from typing import Annotated
 
-import httpx
 from fastapi import Depends, HTTPException, Request, status
-from supabase import Client
 
 from backend.core.config import get_settings
-from backend.core.supabase_client import get_supabase
 
 logger = logging.getLogger(__name__)
 
@@ -56,31 +53,34 @@ async def get_current_user(request: Request) -> dict:
 
     token = parts[1]
 
-    # Validate token using Supabase's auth.get_user()
-    # This is the most reliable approach — Supabase verifies the JWT
-    # server-side and returns the user if valid.
-    supabase = get_supabase()
-    if supabase is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Authentication service unavailable. Please try again later.",
-        )
-
+    # Validate token statelessly using Supabase Auth REST API
+    # This prevents state leakage on the singleton Supabase client.
+    settings = get_settings()
+    auth_url = f"{settings.supabase_url}/auth/v1/user"
+    
     try:
-        user_response = supabase.auth.get_user(token)
-
-        if user_response is None or user_response.user is None:
+        import httpx
+        with httpx.Client() as client:
+            resp = client.get(
+                auth_url,
+                headers={
+                    "apikey": settings.supabase_service_role_key,
+                    "Authorization": f"Bearer {token}",
+                },
+            )
+            
+        if resp.status_code != 200:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-
-        user = user_response.user
+            
+        user_data = resp.json()
         return {
-            "id": str(user.id),
-            "email": user.email,
-            "role": user.role,
+            "id": user_data.get("id"),
+            "email": user_data.get("email"),
+            "role": user_data.get("role"),
         }
 
     except HTTPException:

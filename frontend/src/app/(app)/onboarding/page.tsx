@@ -113,7 +113,7 @@ function OnboardingContent() {
       // Check if they already have a VCS connection
       try {
         const connections = await api.listVcsConnections(session.access_token);
-        console.log("VCS Connections check:", connections);
+        // Check connections
 
         if (connections && connections.length > 0) {
           // Sort to get the latest connection
@@ -144,8 +144,15 @@ function OnboardingContent() {
         ? await api.listGithubRepos(token)
         : await api.listGitlabRepos(token);
       setRepos(list);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to load repos:", err);
+      if (err.message?.includes("expired or revoked") || err.message?.includes("Unauthorized") || err.message?.includes("API error 400")) {
+        // Token is invalid, force reconnect
+        setConnected(false);
+        setVcsConnectionId(null);
+        setConnectedPlatform(null);
+        alert("Your connection has expired or is invalid. Please reconnect your repository.");
+      }
     } finally {
       setReposLoading(false);
     }

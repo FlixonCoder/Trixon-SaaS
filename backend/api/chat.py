@@ -54,8 +54,76 @@ STRICT RULES:
 5. You have access to the generated reports, action items, and analysis history for this project. Reference them specifically — do not give generic advice.
 6. Always end your response with a concrete next step the founder can take.
 7. If you don't know the answer from the provided context, say so honestly rather than guessing.
+8. If relevant code snippets are included in your context below, you may reference them directly and quote short relevant excerpts. If a question requires code that isn't included in your context, say so honestly rather than guessing — suggest the user check that specific file directly.
 
 Current project context is provided below. Use it as your exclusive source of truth."""
+
+# -----------------------------------------------
+# Code Retrieval (v3.4)
+# -----------------------------------------------
+
+def fetch_code_snapshot(supabase, analysis_id: str) -> dict[str, str]:
+    """Fetches the persisted key_files snapshot for this analysis, if it exists."""
+    try:
+        result = supabase.table("code_snapshots")\
+            .select("key_files")\
+            .eq("analysis_id", analysis_id)\
+            .maybe_single().execute().data
+        return result["key_files"] if result else {}
+    except Exception as e:
+        logger.warning(f"Failed to fetch code snapshot for analysis {analysis_id}: {e}")
+        return {}
+
+
+CODE_SEARCH_TRIGGER_PATTERNS = [
+    "system prompt", "config", "env var", "environment variable", "function",
+    "class", "import", "dependency", "route", "endpoint", "schema", "model",
+    "how is", "where is", "show me", "find", "code for", "implementation",
+]
+
+def retrieve_relevant_code(user_message: str, key_files: dict[str, str], max_tokens: int = 2000) -> str:
+    """
+    Lightweight keyword search across the persisted key_files snapshot.
+    Only triggers when the question looks like a code-search question
+    (avoids wasting tokens on every message).
+    """
+    message_lower = user_message.lower()
+
+    looks_like_code_question = any(p in message_lower for p in CODE_SEARCH_TRIGGER_PATTERNS)
+    if not looks_like_code_question:
+        return ""
+
+    import re
+    # Extract probable search terms from the message (simple heuristic: words >3 chars,
+    # excluding common stopwords) to match against file content
+    search_terms = [w for w in re.findall(r'\b\w{4,}\b', message_lower)
+                     if w not in {"what", "where", "show", "find", "code", "this", "that", "have"}]
+
+    matches = []
+    for path, content in key_files.items():
+        content_lower = content.lower()
+        match_count = sum(1 for term in search_terms if term in content_lower)
+        if match_count > 0:
+            matches.append((match_count, path, content))
+
+    if not matches:
+        return ""
+
+    matches.sort(reverse=True)
+    context_parts = []
+    used_tokens = 0
+
+    for _, path, content in matches[:3]:  # top 3 most relevant files
+        estimated = len(content) // 4
+        if used_tokens + estimated > max_tokens:
+            remaining_chars = (max_tokens - used_tokens) * 4
+            content = content[:remaining_chars] + "\n[truncated]"
+        context_parts.append(f"### Code from `{path}`\n```\n{content}\n```")
+        used_tokens += estimated
+        if used_tokens >= max_tokens:
+            break
+
+    return "\n\n".join(context_parts)
 
 # -----------------------------------------------
 # Keyword → Report Mapping (v3.3 Lightweight Retrieval)
@@ -228,6 +296,74 @@ async def send_chat_message(
         )
 
     # -----------------------------------------------
+    # Rate Limiting (Beta Restrictions)
+    # -----------------------------------------------
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    one_min_ago = (now - timedelta(minutes=1)).isoformat()
+    one_day_ago = (now - timedelta(days=1)).isoformat()
+
+    # Query last 24h messages
+    daily_resp = (
+        supabase.table("project_chats")
+        .select("created_at", count="exact")
+        .eq("user_id", user_id)
+        .eq("role", "user")
+        .gte("created_at", one_day_ago)
+        .execute()
+    )
+    daily_count = daily_resp.count if daily_resp and daily_resp.count is not None else 0
+
+    if daily_count >= 10:
+        limit_msg = "You have exceeded the beta testing limit of 10 messages per day. Please try again tomorrow."
+        _store_message(supabase, project_id, user_id, "user", body.message)
+        _store_message(supabase, project_id, user_id, "assistant", limit_msg)
+
+        async def limit_stream():
+            import json
+            yield f"data: {json.dumps({'text': limit_msg})}\n\n"
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(
+            limit_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            },
+        )
+
+    # Query last 1 min messages
+    min_resp = (
+        supabase.table("project_chats")
+        .select("created_at", count="exact")
+        .eq("user_id", user_id)
+        .eq("role", "user")
+        .gte("created_at", one_min_ago)
+        .execute()
+    )
+    min_count = min_resp.count if min_resp and min_resp.count is not None else 0
+
+    if min_count >= 2:
+        limit_msg = "You have exceeded the beta testing limit of 2 messages per minute. Please try again shortly."
+        _store_message(supabase, project_id, user_id, "user", body.message)
+        _store_message(supabase, project_id, user_id, "assistant", limit_msg)
+
+        async def limit_stream():
+            import json
+            yield f"data: {json.dumps({'text': limit_msg})}\n\n"
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(
+            limit_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            },
+        )
+
+    # -----------------------------------------------
     # Concurrency Guard: 1 active chat per project
     # -----------------------------------------------
     if project_id in _active_chat_projects:
@@ -286,6 +422,14 @@ async def send_chat_message(
         # Store the user's ORIGINAL message (not context block)
         # -----------------------------------------------
         _store_message(supabase, project_id, user_id, "user", body.message)
+        
+        from backend.services.analytics import track_event
+        track_event(
+            user_id=user_id,
+            event_type="chat_message_sent",
+            project_id=project_id,
+            properties={"message_length": len(body.message)}
+        )
 
         # -----------------------------------------------
         # Stream response from Groq
@@ -548,6 +692,14 @@ async def _build_chat_context(
         else ""
     )
 
+    key_files = fetch_code_snapshot(supabase, latest["id"])
+    code_context = retrieve_relevant_code(user_message, key_files, max_tokens=2000) if key_files else ""
+    code_block = (
+        f"### Relevant Code From the Repository\n{code_context}"
+        if code_context
+        else ""
+    )
+
     context_parts = [scores_block, action_items_block]
     if commit_block:
         context_parts.append(commit_block)
@@ -557,6 +709,8 @@ async def _build_chat_context(
         context_parts.append(history_block)
     if report_block:
         context_parts.append(report_block)
+    if code_block:
+        context_parts.append(code_block)
 
     context_block = "\n\n".join(context_parts)
     return system_prompt, context_block

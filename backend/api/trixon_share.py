@@ -6,7 +6,6 @@ for a free 15-minute expert readout. This is the highest-intent lead capture.
 """
 
 import logging
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel

@@ -16,7 +16,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from pydantic import BaseModel
 
 from backend.core.auth import CurrentUser
@@ -149,6 +149,14 @@ async def update_action_item(
         .update(update_data)
         .eq("id", item_id)
         .execute()
+    )
+    
+    from backend.services.analytics import track_event
+    track_event(
+        user_id=user_id,
+        event_type="action_item_status_changed",
+        project_id=item_resp.data.get("project_id"),
+        properties={"status": body.status}
     )
 
     return result.data[0] if result.data else {"id": item_id, "status": body.status}

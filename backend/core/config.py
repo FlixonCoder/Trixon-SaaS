@@ -77,6 +77,7 @@ class Settings(BaseSettings):
 
     # --- Security ---
     encryption_key: str = ""  # AES-256 key for encrypting VCS tokens at rest
+    admin_secret: str = ""    # Secret key for protecting admin routes
 
     # --- Stripe (one-time audit purchases) ---
     stripe_secret_key: str = ""

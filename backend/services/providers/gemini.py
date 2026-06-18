@@ -1,3 +1,10 @@
+"""
+Trixon Backend — Gemini Provider
+
+NOT CURRENTLY USED. Kept for future multi-provider support.
+See trixon-cleanup-audit-prompt.md for context.
+"""
+
 import logging
 import time
 

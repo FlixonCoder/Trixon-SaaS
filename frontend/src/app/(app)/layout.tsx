@@ -1,17 +1,34 @@
 import Link from "next/link";
 import Image from "next/image";
-import { LogOut, Settings, LayoutDashboard, FolderGit2 } from "lucide-react";
+import { LogOut, Settings, LayoutDashboard, FolderGit2, Shield } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { api } from "@/lib/api";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+
+  let isAdmin = false;
+  if (session) {
+    try {
+      const profile = await api.getProfile(session.access_token);
+      isAdmin = !!profile?.is_admin;
+      console.log("LAYOUT_SESSION: email =", session.user.email, "id =", session.user.id, "isAdmin =", isAdmin);
+    } catch (err) {
+      console.error("Failed to fetch profile in layout:", err);
+    }
+  } else {
+    console.log("LAYOUT_SESSION: No active session");
+  }
   return (
     <div className="min-h-screen bg-paper flex flex-col">
       {/* Top Navigation */}
       <header className="bg-obsidian border-b border-obsidian-raised sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-8">
               <Link href="/dashboard" className="flex-shrink-0">
@@ -31,6 +48,15 @@ export default function DashboardLayout({
                   <LayoutDashboard className="w-4 h-4" />
                   <span className="hidden sm:inline font-display">Projects</span>
                 </Link>
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="flex items-center gap-1.5 sm:gap-2 text-sm font-medium text-paper bg-emerald-600 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-md hover:bg-emerald-700 transition-colors"
+                  >
+                    <Shield className="w-4 h-4" />
+                    <span className="hidden sm:inline font-display">Admin</span>
+                  </Link>
+                )}
               </nav>
             </div>
             
@@ -60,7 +86,7 @@ export default function DashboardLayout({
 
       {/* Main Content Area */}
       <main className="flex-1 py-8 flex flex-col">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex-1 flex flex-col">
+        <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col">
           {children}
         </div>
       </main>

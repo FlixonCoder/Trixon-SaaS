@@ -14,7 +14,6 @@ v3.4 changes:
   - All extractor functions handle BOTH old JSON schemas AND new flat findings schema
 """
 
-import json
 import logging
 from datetime import datetime, timezone
 

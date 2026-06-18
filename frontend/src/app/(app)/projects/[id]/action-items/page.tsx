@@ -98,7 +98,7 @@ export default function ActionItemsPage() {
 
   return (
     <div className="min-h-screen bg-paper-sunken">
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+      <main className="w-full mx-auto px-4 sm:px-6 py-8 sm:py-10">
         <ProjectLayout project={project} analysis={analysis} activeTab="action-items">
           <div className="mt-6">
             <div className="flex items-start justify-between mb-6">

@@ -99,12 +99,15 @@ def create_app() -> FastAPI:
     app.include_router(analyses_router, prefix="/api/v1")
     from backend.api.reports import router as reports_router
     from backend.api.share import router as share_router
-    from backend.api.checkout import router as checkout_router
     from backend.api.trixon_share import router as trixon_share_router
+    from backend.api.analytics import router as analytics_router
+    from backend.api.admin_metrics import router as admin_metrics_router
+
     app.include_router(reports_router, prefix="/api/v1")
     app.include_router(share_router, prefix="/api/v1")
-    app.include_router(checkout_router, prefix="/api/v1")
     app.include_router(trixon_share_router, prefix="/api/v1")
+    app.include_router(analytics_router, prefix="/api/v1")
+    app.include_router(admin_metrics_router, prefix="/api/v1")
 
     # v3.0 + v3.1 routers — no prefix since routes already include /api/v1
     app.include_router(webhooks_router)

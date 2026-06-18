@@ -6,13 +6,11 @@ Creating a project enqueues an analysis job automatically.
 """
 
 import logging
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, status, BackgroundTasks
 from pydantic import BaseModel
 
 from backend.core.auth import CurrentUser
-from backend.core.redis_client import get_redis
 from backend.core.supabase_client import get_supabase
 
 logger = logging.getLogger(__name__)
@@ -139,6 +137,9 @@ async def create_project(user: CurrentUser, body: CreateProjectRequest) -> Proje
             .execute()
         )
         project = project_resp.data[0]
+
+        from backend.services.analytics import track_event
+        track_event(user["id"], "repo_connected", project_id=project["id"])
 
         return _build_project_response(project, None)
 
@@ -328,8 +329,23 @@ async def get_project_access_level(user: CurrentUser, project_id: str) -> dict:
     if project_resp is None or not project_resp.data:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    from backend.api.checkout import get_access_level
-    access = get_access_level(project_id, user["id"])
+    from backend.core.config import get_settings
+    settings = get_settings()
+    if settings.beta_mode:
+        return {"access": "full"}
+
+    profile_resp = (
+        supabase.table("profiles")
+        .select("plan")
+        .eq("id", user["id"])
+        .maybe_single()
+        .execute()
+    )
+    plan = "free"
+    if profile_resp and profile_resp.data:
+        plan = profile_resp.data.get("plan", "free")
+        
+    access = "full" if plan == "pro" else "basic"
     return {"access": access}
 
 
@@ -372,6 +388,37 @@ async def trigger_analysis(
             status_code=status.HTTP_409_CONFLICT,
             detail="An analysis is already running for this project.",
         )
+
+    # -----------------------------------------------
+    # Rate Limiting (Beta Restrictions: 5 analyses/day/user)
+    # -----------------------------------------------
+    from datetime import datetime, timedelta, timezone
+    one_day_ago = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    
+    # Get all projects for this user to query their analyses
+    user_projects_resp = (
+        supabase.table("projects")
+        .select("id")
+        .eq("user_id", user["id"])
+        .execute()
+    )
+    user_project_ids = [p["id"] for p in (user_projects_resp.data or [])]
+
+    if user_project_ids:
+        daily_analysis_resp = (
+            supabase.table("analyses")
+            .select("id", count="exact")
+            .in_("project_id", user_project_ids)
+            .gte("created_at", one_day_ago)
+            .execute()
+        )
+        daily_analysis_count = daily_analysis_resp.count if daily_analysis_resp and daily_analysis_resp.count is not None else 0
+
+        if daily_analysis_count >= 5:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="You have exceeded the beta testing limit of 5 analyses per day. Please try again tomorrow."
+            )
 
     # Global Queue Protection: Prevent hardware overload
     from backend.core.config import get_settings
@@ -424,6 +471,17 @@ async def trigger_analysis(
             trigger_source=body.trigger_source if body else "manual"
         )
         logger.info(f"Background task added for analysis {analysis['id']}")
+
+        from backend.services.analytics import track_event
+        track_event(
+            user_id=user["id"],
+            event_type="analysis_triggered",
+            project_id=project_id,
+            properties={
+                "trigger_source": body.trigger_source if body else "manual",
+                "selected_reports": selected
+            }
+        )
 
         return _build_analysis_status(analysis)
 

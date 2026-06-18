@@ -5,7 +5,7 @@ Endpoints for interacting with generated reports (simplify, share).
 """
 
 import logging
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from backend.core.auth import CurrentUser
@@ -79,7 +79,7 @@ async def toggle_report_share(user: CurrentUser, report_id: str, body: ShareRequ
     # Verify ownership
     report_resp = (
         supabase.table("reports")
-        .select("id, share_token, analyses(projects(user_id))")
+        .select("id, share_token, analyses(projects(id, user_id))")
         .eq("id", report_id)
         .maybe_single()
         .execute()
@@ -108,6 +108,15 @@ async def toggle_report_share(user: CurrentUser, report_id: str, body: ShareRequ
             .eq("id", report_id)
             .execute()
         )
+        
+        if body.enabled:
+            from backend.services.analytics import track_event
+            track_event(
+                user_id=user["id"],
+                event_type="report_shared",
+                project_id=report_resp.data["analyses"]["projects"]["id"] if "id" in report_resp.data.get("analyses", {}).get("projects", {}) else None
+            )
+            
         return ShareResponse(share_token=updated.data[0]["share_token"] if updated.data else None)
     except Exception as e:
         logger.error(f"Share toggle failed: {e}")

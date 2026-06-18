@@ -274,6 +274,7 @@ export const api = {
       role: string | null;
       primary_goal: string | null;
       plan: string;
+      is_admin: boolean;
       created_at: string;
     }>("/api/v1/profile", token),
 
@@ -435,5 +436,31 @@ export const api = {
         commit_author: opts?.commitAuthor,
       }),
     }),
+
+  // ── Admin Metrics ─────────────────────────────────────────
+  getAdminOverview: (token: string) =>
+    apiFetch<any>(`/api/v1/admin/metrics/overview`, token),
+    
+  getAdminSignupsTimeseries: (token: string, days = 30) =>
+    apiFetch<any[]>(`/api/v1/admin/metrics/signups-timeseries?days=${days}`, token),
+    
+  getAdminFeatureAdoption: (token: string) =>
+    apiFetch<any>(`/api/v1/admin/metrics/feature-adoption`, token),
+    
+  getAdminMostViewedReports: (token: string) =>
+    apiFetch<any[]>(`/api/v1/admin/metrics/most-viewed-reports`, token),
+    
+  getAdminHealthScoreDistribution: (token: string) =>
+    apiFetch<any[]>(`/api/v1/admin/metrics/health-score-distribution`, token),
+    
+  getAdminRecentActivity: (token: string, limit = 50) =>
+    apiFetch<any[]>(`/api/v1/admin/metrics/recent-activity?limit=${limit}`, token),
+    
+  // ── Usage Analytics ───────────────────────────────────────
+  trackEvent: (token: string, event_type: string, project_id?: string, properties?: Record<string, any>) =>
+    apiFetch<{ status: string }>(`/api/v1/analytics/event`, token, {
+      method: "POST",
+      body: JSON.stringify({ event_type, project_id, properties }),
+    }).catch(e => console.error("Tracking failed", e)),
 };
 
