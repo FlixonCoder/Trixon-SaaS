@@ -1,0 +1,27 @@
+# --------------------------------------------------
+# Trixon — Local Development Services
+# --------------------------------------------------
+# Usage:
+#   docker-compose up redis       # Start Redis only
+#   docker-compose up              # Start all services
+#   docker-compose down            # Stop all services
+# --------------------------------------------------
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: trixon-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+    driver: local

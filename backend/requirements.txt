@@ -1,0 +1,26 @@
+# Trixon Backend — Runtime Dependencies
+# These are production dependencies installed in the Docker image.
+
+# Web framework
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+
+# Supabase
+supabase==2.15.1
+
+# Redis + background jobs
+redis==5.3.0
+rq==2.3.0
+
+# Configuration
+pydantic-settings==2.9.1
+python-dotenv==1.1.0
+
+# HTTP client (for GitHub/GitLab API calls)
+httpx==0.28.1
+
+# AI (Google Gemini API)
+google-genai==2.0.1
+
+# Encryption (AES-256 for VCS token storage)
+cryptography==44.0.3
