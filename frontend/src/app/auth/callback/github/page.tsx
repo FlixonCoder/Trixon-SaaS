@@ -22,7 +22,7 @@ function GitHubCallback() {
           throw new Error("No active session");
         }
 
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/vcs/github/connect`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || ""}/api/v1/vcs/github/connect`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

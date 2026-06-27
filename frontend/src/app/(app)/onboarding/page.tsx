@@ -57,7 +57,7 @@ function OnboardingContent() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("No active session");
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/profile`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || ""}/api/v1/profile`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

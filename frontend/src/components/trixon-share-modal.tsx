@@ -25,7 +25,7 @@ export function TrixonShareModal({ analysisId, onClose }: TrixonShareModalProps)
       if (!session) throw new Error("Not authenticated");
 
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || ""}/api/v1/trixon-share`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || ""}/api/v1/trixon-share`,
         {
           method: "POST",
           headers: {

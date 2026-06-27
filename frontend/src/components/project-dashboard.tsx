@@ -203,7 +203,7 @@ function ScoreRing({ score, label, size = 80, sparklineData = null }: { score: n
 function BadgeShareCard({ projectId, healthScore }: { projectId: string; healthScore: number }) {
   const [copied, setCopied] = useState(false);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://trixon.cloud";
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.trixon.cloud";
+  const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "https://api.trixon.cloud";
   const badgeMarkdown = `[![Trixon Health: ${healthScore}/100](${apiUrl}/api/badge/${projectId})](${appUrl}/public/${projectId})`;
 
   const handleCopy = async () => {

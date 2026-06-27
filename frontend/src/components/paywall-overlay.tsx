@@ -26,7 +26,7 @@ export function PaywallOverlay({ projectId }: PaywallOverlayProps) {
       }
 
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || ""}/api/v1/checkout/create-session`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || ""}/api/v1/checkout/create-session`,
         {
           method: "POST",
           headers: {
