@@ -35,29 +35,5 @@
       "source": "/public/:projectId",
       "destination": "/public/:projectId"
     }
-  ],
-
-  "redirects": [
-    {
-      "source": "/home",
-      "destination": "/",
-      "permanent": true
-    }
-  ],
-
-  "env": {
-    "NEXT_PUBLIC_SUPABASE_URL":        "@next_public_supabase_url",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY":   "@next_public_supabase_anon_key",
-    "NEXT_PUBLIC_API_URL":             "@next_public_api_url",
-    "NEXT_PUBLIC_BACKEND_URL":         "@next_public_backend_url",
-    "BACKEND_URL":                      "@backend_url",
-    "NEXT_PUBLIC_APP_URL":             "@next_public_app_url",
-    "NEXT_PUBLIC_GITHUB_CLIENT_ID":    "@next_public_github_client_id",
-    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": "@next_public_stripe_publishable_key",
-    "NEXT_PUBLIC_BOOKING_URL":         "@next_public_booking_url",
-    "NEXT_PUBLIC_TRIXON_EMAIL":        "@next_public_trixon_email",
-    "NEXT_PUBLIC_BETA_MODE":           "@next_public_beta_mode"
-  },
-
-  "regions": ["iad1"]
+  ]
 }
