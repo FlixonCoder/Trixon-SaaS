@@ -12,6 +12,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.health import router as health_router
+from backend.api.badge import router as badge_router
+from backend.api.search import router as search_router
 from backend.api.profile import router as profile_router
 from backend.api.vcs import router as vcs_router
 from backend.api.repos import router as repos_router
@@ -113,6 +115,12 @@ def create_app() -> FastAPI:
     app.include_router(webhooks_router)
     app.include_router(action_items_router)
     app.include_router(chat_router)
+
+    # v3.6 — Public badge (no prefix, routes are /api/badge/... and /api/public/...)
+    app.include_router(badge_router)
+
+    # v3.6 — Search (no prefix, router defines /api/v1/projects/{id}/search)
+    app.include_router(search_router)
 
     return app
 

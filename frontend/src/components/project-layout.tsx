@@ -11,6 +11,7 @@ import {
   CheckCircle,
   XCircle,
   ArrowLeft,
+  Search,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { api, type Project, type AnalysisStatus } from "@/lib/api";
@@ -26,7 +27,7 @@ function ClientDate({ date }: { date: string }) {
 interface ProjectLayoutProps {
   project: Project;
   analysis: AnalysisStatus;
-  activeTab: "dashboard" | "action-items" | "timeline" | "chat" | "reports";
+  activeTab: "dashboard" | "action-items" | "timeline" | "chat" | "reports" | "search";
   children: React.ReactNode;
 }
 
@@ -42,6 +43,18 @@ export function ProjectLayout({
   const [reanalysing, setReanalysing] = useState(false);
   const [reanalyseError, setReanalyseError] = useState<string | null>(null);
   const [reanalyseSuccess, setReanalyseSuccess] = useState(false);
+
+  // Cmd+K / Ctrl+K shortcut — opens project search from anywhere in a project
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        router.push(`/projects/${project.id}/search`);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [project.id, router]);
 
   useEffect(() => {
     setWebhookConnected(project.webhook_connected);
@@ -197,6 +210,18 @@ export function ProjectLayout({
           }`}
         >
           Reports
+        </Link>
+        <Link
+          href={`/projects/${project.id}/search`}
+          className={`text-sm pb-3 px-1 border-b-2 transition-all flex items-center gap-1.5 ${
+            activeTab === "search"
+              ? "font-semibold text-zinc-900 border-zinc-900"
+              : "font-medium text-ash border-transparent hover:text-obsidian"
+          }`}
+        >
+          <Search className="w-3.5 h-3.5" />
+          Search
+          <kbd className="hidden sm:inline-flex text-[9px] bg-paper-sunken border border-paper-sunken rounded px-1 py-0.5 font-mono text-ash/70">⌘K</kbd>
         </Link>
       </div>
 

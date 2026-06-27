@@ -272,7 +272,11 @@ async def receive_github_webhook(
 
     if webhook_resp and webhook_resp.data:
         secret = webhook_resp.data.get("webhook_secret", "")
-        if x_hub_signature_256 and secret:
+        if secret:
+            if not x_hub_signature_256:
+                logger.warning(f"[webhook/github] Missing signature header for {repo_full_name}")
+                raise HTTPException(status_code=401, detail="Missing signature")
+                
             expected_sig = "sha256=" + hmac.new(
                 secret.encode("utf-8"),
                 body,
@@ -361,8 +365,14 @@ async def receive_gitlab_webhook(
 
     if webhook_resp and webhook_resp.data:
         secret = webhook_resp.data.get("webhook_secret", "")
-        if x_gitlab_token and secret and x_gitlab_token != secret:
-            raise HTTPException(status_code=401, detail="Invalid GitLab token")
+        if secret:
+            if not x_gitlab_token:
+                logger.warning(f"[webhook/gitlab] Missing GitLab token header for {repo_full_name}")
+                raise HTTPException(status_code=401, detail="Missing GitLab token")
+                
+            if not hmac.compare_digest(x_gitlab_token, secret):
+                logger.warning(f"[webhook/gitlab] Token mismatch for {repo_full_name}")
+                raise HTTPException(status_code=401, detail="Invalid GitLab token")
 
         supabase.table("webhook_connections").update({
             "last_triggered_at": datetime.now(timezone.utc).isoformat()

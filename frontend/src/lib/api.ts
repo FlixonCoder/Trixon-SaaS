@@ -462,5 +462,59 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ event_type, project_id, properties }),
     }).catch(e => console.error("Tracking failed", e)),
+
+  // ── v3.6: Public Badge + Project Summary ──────────────────
+  getPublicProject: (projectId: string) =>
+    fetch(`${API_URL}/api/public/project/${projectId}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json() as Promise<{
+          project_name: string;
+          repo_name: string;
+          repo_url: string;
+          snapshot_number: number | null;
+          analyzed_at: string | null;
+          health_score: number | null;
+          security_score: number | null;
+          scalability_score: number | null;
+          quality_score: number | null;
+          docs_score: number | null;
+          language_breakdown: Record<string, number>;
+          frameworks: string[];
+          third_party_services: string[];
+          open_action_items_count: number;
+          snapshot_trend: { snapshot: number; score: number }[];
+        }>;
+      }),
+
+  getBadgeUrl: (projectId: string) => `${API_URL}/api/badge/${projectId}`,
+
+  // ── v3.6: Codebase Search ─────────────────────────────────
+  searchProject: (
+    token: string,
+    projectId: string,
+    query: string,
+    searchIn: ("code" | "reports" | "action_items")[] = ["code", "reports", "action_items"]
+  ) =>
+    apiFetch<{
+      query: string;
+      total: number;
+      results: {
+        result_type: "code" | "report" | "action_item";
+        title: string;
+        snippet: string;
+        line_number: number | null;
+        relevance_score: number;
+        report_type: string | null;
+        item_id: string | null;
+        severity: string | null;
+        category: string | null;
+        ai_prompt: string | null;
+        status: string | null;
+      }[];
+    }>(`/api/v1/projects/${projectId}/search`, token, {
+      method: "POST",
+      body: JSON.stringify({ query, search_in: searchIn }),
+    }),
 };
 

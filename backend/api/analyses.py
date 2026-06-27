@@ -237,15 +237,16 @@ async def get_report(
 # -----------------------------------------------
 
 from fastapi import Depends
-from backend.api.health import verify_admin
+from backend.core.auth import require_admin
 
 class BackfillResponse(BaseModel):
     processed_analyses: int
     items_created: int
     skipped: int
 
-@router.post("/admin/backfill-action-items", response_model=BackfillResponse, dependencies=[Depends(verify_admin)])
+@router.post("/admin/backfill-action-items", response_model=BackfillResponse, dependencies=[Depends(require_admin)])
 async def backfill_action_items() -> BackfillResponse:
+
     """
     One-time backfill route to extract action items from existing stored reports.
     Requires user to have admin flag (or for this to be called locally).
@@ -303,7 +304,7 @@ class ScoreBackfillResponse(BaseModel):
     fixed_count: int
 
 
-@router.post("/admin/backfill-analysis-scores", response_model=ScoreBackfillResponse, dependencies=[Depends(verify_admin)])
+@router.post("/admin/backfill-analysis-scores", response_model=ScoreBackfillResponse, dependencies=[Depends(require_admin)])
 async def backfill_analysis_scores() -> ScoreBackfillResponse:
     """
     For every analysis, derive the TRUE selected_reports list from the reports

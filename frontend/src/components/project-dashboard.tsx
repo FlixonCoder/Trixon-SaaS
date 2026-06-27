@@ -200,6 +200,56 @@ function ScoreRing({ score, label, size = 80, sparklineData = null }: { score: n
   );
 }
 
+function BadgeShareCard({ projectId, healthScore }: { projectId: string; healthScore: number }) {
+  const [copied, setCopied] = useState(false);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://trixon.cloud";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.trixon.cloud";
+  const badgeMarkdown = `[![Trixon Health: ${healthScore}/100](${apiUrl}/api/badge/${projectId})](${appUrl}/public/${projectId})`;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(badgeMarkdown);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+    }
+  };
+
+  return (
+    <div className="bg-paper-raised border border-paper-sunken rounded-2xl p-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-obsidian mb-0.5">Share your score</p>
+          <p className="text-xs text-ash">Embed this badge in your GitHub README to showcase your health score.</p>
+        </div>
+        {/* Live badge preview */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`${apiUrl}/api/badge/${projectId}`}
+          alt={`Trixon Health: ${healthScore}/100`}
+          className="h-5 flex-shrink-0"
+        />
+      </div>
+      <div className="mt-4 flex items-center gap-2 bg-paper-sunken rounded-xl px-3 py-2.5 border border-paper-sunken">
+        <code className="font-mono text-[10px] text-ash flex-1 truncate">
+          {badgeMarkdown}
+        </code>
+        <button
+          onClick={handleCopy}
+          className={`flex-shrink-0 text-xs font-semibold px-3 py-1 rounded-lg border transition-all ${
+            copied
+              ? "bg-signal/10 border-signal/20 text-signal"
+              : "bg-paper-raised border-paper-sunken text-obsidian hover:bg-paper-sunken"
+          }`}
+        >
+          {copied ? "Copied!" : "Copy for README"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function StatCard({ label, value, sublabel, icon: Icon }: {
   label: string;
   value: string | number;
@@ -493,6 +543,14 @@ export function ProjectDashboard({ project, analysis: initialAnalysis, hasFullAc
           <ScoreRing score={initialAnalysis.docs_score ?? null} label="Documentation" sparklineData={docsTrend} />
         </div>
       </div>
+
+      {/* Badge Share Card — v3.6 */}
+      {initialAnalysis.health_score !== null && (
+        <BadgeShareCard
+          projectId={project.id}
+          healthScore={initialAnalysis.health_score}
+        />
+      )}
 
       {/* Stats + Languages Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

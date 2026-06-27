@@ -33,12 +33,10 @@ def client(mock_supabase, mock_redis, mock_get_current_user):
     import backend.core.redis_client as rc
     
     original_supabase = sc._supabase_client
-    original_redis = rc._redis_client
     original_check_supabase = sc.check_supabase_health
     original_check_redis = rc.check_redis_health
 
     sc._supabase_client = mock_supabase
-    rc._redis_client = mock_redis
     sc.check_supabase_health = AsyncMock(return_value=True)
     rc.check_redis_health = AsyncMock(return_value=True)
 
@@ -48,6 +46,5 @@ def client(mock_supabase, mock_redis, mock_get_current_user):
     # Restore overrides
     app.dependency_overrides.clear()
     sc._supabase_client = original_supabase
-    rc._redis_client = original_redis
     sc.check_supabase_health = original_check_supabase
     rc.check_redis_health = original_check_redis

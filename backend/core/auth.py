@@ -97,3 +97,44 @@ async def get_current_user(request: Request) -> dict:
 # Type alias for use in route handler signatures
 # Usage: async def my_route(user: CurrentUser):
 CurrentUser = Annotated[dict, Depends(get_current_user)]
+
+
+async def require_admin(user: CurrentUser) -> dict:
+    """
+    FastAPI dependency that checks if the current authenticated user
+    has admin privileges by querying their database profile.
+    """
+    from backend.core.supabase_client import get_supabase
+    
+    supabase = get_supabase()
+    if supabase is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service unavailable",
+        )
+        
+    try:
+        profile_resp = (
+            supabase.table("profiles")
+            .select("is_admin")
+            .eq("id", user["id"])
+            .maybe_single()
+            .execute()
+        )
+        
+        if not profile_resp or not profile_resp.data or not profile_resp.data.get("is_admin"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin access required",
+            )
+            
+        return user
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to check admin privileges for user {user['id']}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to verify admin status",
+        )
+

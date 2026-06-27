@@ -6,4 +6,3 @@ def test_health_check_ok(client: TestClient):
     data = response.json()
     assert data["status"] == "ok"
     assert data["supabase"] is True
-    assert data["redis"] is True

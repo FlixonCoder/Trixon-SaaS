@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     app_version: str = "0.2.0"
     debug: bool = False
     allowed_origins: str = "http://localhost:3000"  # comma-separated for CORS
+    cors_allowed_origins: str = ""  # Bind to CORS_ALLOWED_ORIGINS from Render
 
     # --- Supabase ---
     supabase_url: str = ""
@@ -102,8 +103,9 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> list[str]:
-        """Parse comma-separated CORS origins into a list."""
-        return [origin.strip() for origin in self.allowed_origins.split(",")]
+        """Parse comma-separated CORS origins into a list. Falls back to cors_allowed_origins if set."""
+        origins_str = self.cors_allowed_origins if self.cors_allowed_origins else self.allowed_origins
+        return [origin.strip() for origin in origins_str.split(",") if origin.strip()]
 
 
 @lru_cache
