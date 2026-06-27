@@ -4,30 +4,48 @@ services:
     runtime: python
     plan: free
 
+    # Render auto-detects the repo root — build from root so imports work
+    rootDir: .
     buildCommand: pip install -r backend/requirements.txt
 
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
 
-    healthCheckPath: /health
+    # Health check — must return 200 within the timeout window
+    healthCheckPath: /api/v1/health
 
     autoDeploy: true
 
+    # Only rebuild when backend files change (saves build minutes)
+    buildFilter:
+      paths:
+        - backend/**
+        - requirements.txt
+
     envVars:
+      # ── Python Runtime ────────────────────────────────────────
       - key: PYTHON_VERSION
         value: "3.12"
 
+      # ── Supabase ─────────────────────────────────────────────
       - key: SUPABASE_URL
         sync: false
 
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
 
-      - key: ANTHROPIC_API_KEY
-        sync: false
-
+      # ── AI Provider — Groq key pool ──────────────────────────
+      # Comma-separated list: GROQ_KEYS="key1,key2,key3"
       - key: GROQ_API_KEYS
         sync: false
 
+      - key: GROQ_MODEL
+        value: "openai/gpt-oss-120b"
+
+      # Tokens-per-minute cap for adaptive sleep between requests
+      - key: LLM_TPM_LIMIT
+        value: "7000"
+
+      # ── GitHub OAuth + Webhooks ───────────────────────────────
       - key: GITHUB_CLIENT_ID
         sync: false
 
@@ -37,17 +55,45 @@ services:
       - key: GITHUB_WEBHOOK_SECRET
         sync: false
 
+      # ── GitLab OAuth + Webhooks ───────────────────────────────
       - key: GITLAB_CLIENT_ID
         sync: false
 
       - key: GITLAB_CLIENT_SECRET
         sync: false
 
+      - key: GITLAB_WEBHOOK_SECRET
+        sync: false
+
+      # ── Security ─────────────────────────────────────────────
+      # AES-256 encryption key for VCS access tokens at rest
       - key: ENCRYPTION_KEY
         sync: false
 
+      # Secret for admin-only API routes
+      - key: ADMIN_SECRET
+        sync: false
+
+      # ── CORS ─────────────────────────────────────────────────
+      # Comma-separated list of allowed frontend origins
+      # e.g. "https://trixon.cloud,https://www.trixon.cloud"
       - key: CORS_ALLOWED_ORIGINS
         sync: false
 
+      # ── Stripe (one-time audit purchases) ────────────────────
+      - key: STRIPE_SECRET_KEY
+        sync: false
+
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+
+      - key: STRIPE_PRICE_ID_AUDIT_FULL
+        sync: false
+
+      # ── Email (Resend) ────────────────────────────────────────
+      - key: RESEND_API_KEY
+        sync: false
+
+      # ── Beta mode — disables plan gating & repo limits ───────
       - key: BETA_MODE
         value: "true"

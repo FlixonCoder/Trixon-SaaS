@@ -1,6 +1,61 @@
 {
-    "$schema": "https://openapi.vercel.sh/vercel.json",
-    "framework": "nextjs",
-    "cleanUrls": true,
-    "trailingSlash": false
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "cleanUrls": true,
+  "trailingSlash": false,
+
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options",         "value": "DENY" },
+        { "key": "X-Content-Type-Options",  "value": "nosniff" },
+        { "key": "Referrer-Policy",         "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy",      "value": "camera=(), microphone=(), geolocation=()" },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.render.com https://*.railway.app https://api.trixon.cloud; frame-ancestors 'none';"
+        }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    }
+  ],
+
+  "rewrites": [
+    {
+      "source": "/public/:projectId",
+      "destination": "/public/:projectId"
+    }
+  ],
+
+  "redirects": [
+    {
+      "source": "/home",
+      "destination": "/",
+      "permanent": true
+    }
+  ],
+
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL":        "@next_public_supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY":   "@next_public_supabase_anon_key",
+    "NEXT_PUBLIC_API_URL":             "@next_public_api_url",
+    "NEXT_PUBLIC_APP_URL":             "@next_public_app_url",
+    "NEXT_PUBLIC_GITHUB_CLIENT_ID":    "@next_public_github_client_id",
+    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": "@next_public_stripe_publishable_key",
+    "NEXT_PUBLIC_BOOKING_URL":         "@next_public_booking_url",
+    "NEXT_PUBLIC_TRIXON_EMAIL":        "@next_public_trixon_email",
+    "NEXT_PUBLIC_BETA_MODE":           "@next_public_beta_mode"
+  },
+
+  "regions": ["iad1"]
 }

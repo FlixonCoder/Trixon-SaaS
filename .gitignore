@@ -76,5 +76,12 @@ coverage/
 # Local Development
 # ========================
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
 scratch/
 .gemini/
+.vercel/
+*.tsbuildinfo
+frontend/.vercel/
+frontend/*.tsbuildinfo
+
