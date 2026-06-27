@@ -160,7 +160,7 @@ function OnboardingContent() {
 
   const handleConnectGitHub = () => {
     const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
-    const redirectUri = `${window.location.origin}/auth/callback/github`;
+    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/auth/callback/github`;
     const scope = "repo,read:user";
     window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
   };
