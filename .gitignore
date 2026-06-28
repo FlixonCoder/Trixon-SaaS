@@ -84,4 +84,6 @@ scratch/
 *.tsbuildinfo
 frontend/.vercel/
 frontend/*.tsbuildinfo
+vercel-recovery-codes.txt
+*recovery-codes*
 
