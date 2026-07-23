@@ -164,10 +164,27 @@ export default async function ReportPage({ params, searchParams }: PageProps) {
     }
   }
 
-  // Report wasn't generated — show friendly message instead of 404
-  if (reportMissing) {
+  // Detect rate-limit / generation failure stored inside the report content
+  const isGenerationFailed = (() => {
+    if (!report) return false;
+    const md = report.content_markdown || "";
+    const jsonStr = JSON.stringify(report.content_json || {});
+    const failureMarkers = [
+      "Report generation failed",
+      "rate limit on key",
+      "key(s) exhausted",
+      "429 rate limit",
+      "All 5 key",
+    ];
+    return failureMarkers.some(
+      (m) => md.includes(m) || jsonStr.includes(m)
+    );
+  })();
+
+  // Report wasn't generated OR generation failed — show friendly message
+  if (reportMissing || isGenerationFailed) {
     return (
-      <div className="min-h-screen bg-paper-sunken">
+      <div className="min-h-screen bg-paper">
         <main className="max-w-3xl mx-auto px-6 py-10">
           <Link
             href={`/projects/${id}/reports`}
@@ -176,23 +193,30 @@ export default async function ReportPage({ params, searchParams }: PageProps) {
             <ArrowLeft className="w-4 h-4" />
             All Reports
           </Link>
+
+          {/* Report title still shown */}
+          <div className="bg-paper-raised border border-paper-sunken rounded-2xl p-8 mb-6">
+            <h1 className="text-2xl font-bold text-obsidian">{REPORT_LABELS[type]}</h1>
+          </div>
+
           <div className="bg-paper-raised border border-paper-sunken rounded-2xl p-10 text-center">
             <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
               <AlertTriangle className="w-7 h-7 text-amber-400" />
             </div>
             <h2 className="text-xl font-bold text-obsidian mb-2">
-              {REPORT_LABELS[type]} wasn&apos;t generated
+              {isGenerationFailed ? "Report couldn't be generated" : `${REPORT_LABELS[type]} wasn't generated`}
             </h2>
             <p className="text-sm text-ash leading-relaxed max-w-md mx-auto mb-6">
-              This report may have failed during analysis, or the analysis is still running.
-              Try re-running the analysis from your project dashboard.
+              {isGenerationFailed
+                ? "The AI ran into a temporary capacity issue (rate limit) while generating this report. This is usually resolved within a few minutes — re-run the analysis to try again."
+                : "This report may have failed during analysis or is still running. Try re-running the analysis from your project dashboard."}
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link
                 href={`/projects/${id}`}
                 className="inline-flex items-center justify-center gap-2 bg-zinc-900 text-paper-raised px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors"
               >
-                Go to Project
+                Re-run Analysis
               </Link>
               <Link
                 href={`/projects/${id}/reports`}
@@ -280,7 +304,7 @@ export default async function ReportPage({ params, searchParams }: PageProps) {
   const json = report.content_json as Record<string, unknown>;
 
   return (
-    <div className="min-h-screen bg-paper-sunken pb-16 md:pb-20">
+    <div className="min-h-screen bg-paper pb-16 md:pb-20">
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10 print:max-w-none print:p-0">
         {/* Back link */}
         <div className="flex justify-between items-start mb-6 print:hidden">
@@ -361,7 +385,30 @@ export default async function ReportPage({ params, searchParams }: PageProps) {
             {Array.isArray(json.paragraphs) && (
               <div className="space-y-4">
                 {(json.paragraphs as string[])
-                  .filter(p => typeof p === 'string' && !['key_findings', ':', 'score', '{', '}'].includes(p.trim()) && !p.trim().match(/^:\d+$/))
+                  .filter(p => {
+                    if (typeof p !== 'string') return false;
+                    const trimmed = p.trim();
+                    // Filter out JSON fragment artifacts from truncated AI output
+                    const junkPatterns = [
+                      /^[)\]}:,]$/,            // bare closing brackets/punctuation
+                      /^\s*$/,                  // blank strings
+                      /^key_findings$/,
+                      /^score$/,
+                      /^:\s*\d+$/,
+                      /^one_liner$/,
+                      /^headline$/,
+                      /^paragraphs$/,
+                      /^\{$/,
+                      /^\}$/,
+                      /^\[$/,
+                      /^\]$/,
+                    ];
+                    if (junkPatterns.some(re => re.test(trimmed))) return false;
+                    
+                    // Executive summary paragraphs should be well-formed, capitalized, and of reasonable length
+                    const isCapitalized = /^[A-Z]/.test(trimmed);
+                    return trimmed.length >= 60 && isCapitalized;
+                  })
                   .map((p, i) => (
                     <div key={i} className="bg-paper-raised border border-paper-sunken rounded-xl p-6 text-sm text-obsidian leading-relaxed">
                       {p}

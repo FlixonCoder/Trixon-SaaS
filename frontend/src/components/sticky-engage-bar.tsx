@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { Calendar } from "lucide-react";
+import { ScopingModal } from "@/components/scoping-modal";
 
 const BOOKING_URL = process.env.NEXT_PUBLIC_BOOKING_URL || "#";
 
 export function StickyEngageBar() {
+  const [showModal, setShowModal] = useState(false);
+
   return (
     <>
       {/* Desktop: sticky bottom bar */}
@@ -21,15 +25,13 @@ export function StickyEngageBar() {
             >
               How Trixon works →
             </Link>
-            <a
-              href={BOOKING_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-zinc-900 text-paper-raised px-4 py-2 rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors"
+            <button
+              onClick={() => setShowModal(true)}
+              className="inline-flex items-center gap-2 bg-zinc-900 text-paper-raised px-4 py-2 rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors cursor-pointer"
             >
               <Calendar className="w-3.5 h-3.5" />
               Book a free call →
-            </a>
+            </button>
           </div>
         </div>
       </div>
@@ -40,15 +42,13 @@ export function StickyEngageBar() {
           Issues found? Trixon can fix them.
         </p>
         <div className="flex flex-col gap-2">
-          <a
-            href={BOOKING_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 bg-zinc-900 text-paper-raised px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors"
+          <button
+            onClick={() => setShowModal(true)}
+            className="inline-flex items-center justify-center gap-2 bg-zinc-900 text-paper-raised px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors cursor-pointer"
           >
             <Calendar className="w-3.5 h-3.5" />
             Book a free call →
-          </a>
+          </button>
           <Link
             href="/engage"
             className="text-center text-sm text-ash hover:text-obsidian transition-colors py-1"
@@ -57,6 +57,13 @@ export function StickyEngageBar() {
           </Link>
         </div>
       </div>
+
+      {showModal && (
+        <ScopingModal
+          bookingUrl={BOOKING_URL}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </>
   );
 }

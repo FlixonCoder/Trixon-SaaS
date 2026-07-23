@@ -24,24 +24,56 @@ export function TrixonShareModal({ analysisId, onClose }: TrixonShareModalProps)
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || ""}/api/v1/trixon-share`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            analysis_id: analysisId,
-            founder_message: message || null,
-          }),
-        }
-      );
+      // 1. Fetch analysis details
+      const { data: analysis, error: analysisErr } = await supabase
+        .from("analyses")
+        .select("project_id, health_score")
+        .eq("id", analysisId)
+        .maybeSingle();
+
+      if (analysisErr || !analysis) {
+        throw new Error(analysisErr?.message || "Analysis not found");
+      }
+
+      // 2. Fetch project details
+      const { data: project, error: projectErr } = await supabase
+        .from("projects")
+        .select("repo_name")
+        .eq("id", analysis.project_id)
+        .maybeSingle();
+
+      if (projectErr || !project) {
+        throw new Error(projectErr?.message || "Project not found");
+      }
+
+      // 3. Fetch user profile details
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, company_name")
+        .eq("id", session.user.id)
+        .maybeSingle();
+
+      // 4. Send email via Nodemailer route handler
+      const res = await fetch("/api/send-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "trixon_share",
+          name: profile?.full_name || session.user.email,
+          email: session.user.email,
+          company: profile?.company_name || "Unknown Company",
+          message: message || null,
+          analysis_id: analysisId,
+          repo_name: project.repo_name,
+          health_score: analysis.health_score,
+        }),
+      });
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: "Failed to send" }));
-        throw new Error(err.detail || "Failed to send");
+        const err = await res.json().catch(() => ({ error: "Failed to send email" }));
+        throw new Error(err.error || "Failed to send email");
       }
 
       setSent(true);

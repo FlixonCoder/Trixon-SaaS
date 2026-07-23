@@ -6,12 +6,14 @@ interface ParallaxFeatureCardProps {
   title: string;
   description: string;
   icon: React.ReactNode;
+  tag?: string;
 }
 
 export function ParallaxFeatureCard({
   title,
   description,
   icon,
+  tag,
 }: ParallaxFeatureCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isTouch, setIsTouch] = useState(false);
@@ -43,14 +45,26 @@ export function ParallaxFeatureCard({
       ref={cardRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="card-elevated group relative bg-paper-raised rounded-2xl p-8 border border-paper-sunken transition-all duration-150 ease-out"
+      className="card-elevated group relative bg-paper-raised rounded-2xl p-8 border border-paper-sunken transition-all duration-150 ease-out overflow-hidden"
       style={{ willChange: "transform" }}
     >
-      <div className="w-12 h-12 rounded-xl bg-[#039a85]/10 flex items-center justify-center mb-5 transition-transform duration-300 group-hover:scale-110">
-        {icon}
+      {/* Subtle hover glow */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#039a85]/0 via-transparent to-[#039a85]/0 group-hover:from-[#039a85]/[0.03] group-hover:to-[#039a85]/[0.06] transition-all duration-500 rounded-2xl pointer-events-none" />
+
+      <div className="relative z-10">
+        <div className="flex items-start justify-between mb-5">
+          <div className="w-12 h-12 rounded-xl bg-[#039a85]/10 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-[#039a85]/15">
+            {icon}
+          </div>
+          {tag && (
+            <span className="text-[10px] uppercase font-semibold tracking-wider text-[#039a85] bg-[#039a85]/10 px-2.5 py-1 rounded-full">
+              {tag}
+            </span>
+          )}
+        </div>
+        <h3 className="text-lg font-semibold text-obsidian mb-2">{title}</h3>
+        <p className="text-sm text-ash leading-relaxed">{description}</p>
       </div>
-      <h3 className="text-lg font-semibold text-obsidian mb-2">{title}</h3>
-      <p className="text-sm text-ash leading-relaxed">{description}</p>
     </div>
   );
 }

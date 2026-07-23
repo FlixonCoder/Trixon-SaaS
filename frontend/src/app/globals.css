@@ -256,6 +256,58 @@
   background-size: 128px 128px;
 }
 
+/* ============================================================
+   v3.5+ — Scroll-reveal: fade up
+   ============================================================ */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.55s ease-out forwards;
+}
+
+/* Stagger delay helpers */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+
+/* ============================================================
+   v3.5+ — Shimmer placeholder
+   ============================================================ */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, #f0efed 25%, #e8e7e4 50%, #f0efed 75%);
+  background-size: 200% auto;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* ============================================================
+   v3.5+ — Signal pulse ring (for live indicators)
+   ============================================================ */
+@keyframes ring-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(3, 154, 133, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(3, 154, 133, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(3, 154, 133, 0); }
+}
+
+.ring-pulse {
+  animation: ring-pulse 2s ease-out infinite;
+}
+
 /* Respect reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
   .code-wall {
@@ -267,5 +319,15 @@
   }
   .card-elevated:hover {
     transform: none;
+  }
+  .animate-fade-up {
+    animation: none;
+    opacity: 1;
+  }
+  .shimmer {
+    animation: none;
+  }
+  .ring-pulse {
+    animation: none;
   }
 }

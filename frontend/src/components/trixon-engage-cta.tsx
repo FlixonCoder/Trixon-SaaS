@@ -56,41 +56,52 @@ const VARIANT_CONFIG: Record<Variant, {
   },
 };
 
+import { useState } from "react";
+import { ScopingModal } from "@/components/scoping-modal";
+
 export function TrixonEngageCTA(props: TrixonEngageCTAProps) {
+  const [showModal, setShowModal] = useState(false);
   const variant = getVariant(props);
   const config = VARIANT_CONFIG[variant];
   const Icon = config.icon;
 
   return (
-    <div className={`rounded-2xl border ${config.borderColor} ${config.bgColor} p-6 sm:p-8`}>
-      <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-        <div className="flex items-start gap-4 flex-1">
-          <div className="w-12 h-12 bg-paper-raised rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
-            <Icon className={`w-6 h-6 ${config.iconColor}`} />
+    <>
+      <div className={`rounded-2xl border ${config.borderColor} ${config.bgColor} p-6 sm:p-8`}>
+        <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+          <div className="flex items-start gap-4 flex-1">
+            <div className="w-12 h-12 bg-paper-raised rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
+              <Icon className={`w-6 h-6 ${config.iconColor}`} />
+            </div>
+            <div>
+              <h3 className="font-bold text-obsidian mb-1">{config.heading}</h3>
+              <p className="text-sm text-ash leading-relaxed">{config.body}</p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-bold text-obsidian mb-1">{config.heading}</h3>
-            <p className="text-sm text-ash leading-relaxed">{config.body}</p>
+          <div className="flex flex-col sm:flex-row gap-3 lg:flex-shrink-0">
+            <button
+              onClick={() => setShowModal(true)}
+              className="inline-flex items-center justify-center gap-2 bg-zinc-900 text-paper-raised px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors cursor-pointer"
+            >
+              <Calendar className="w-4 h-4" />
+              Book a free call
+            </button>
+            <Link
+              href="/engage"
+              className="inline-flex items-center justify-center gap-2 border border-paper-sunken text-obsidian px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-paper-raised transition-colors"
+            >
+              Learn how Trixon works →
+            </Link>
           </div>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3 lg:flex-shrink-0">
-          <a
-            href={BOOKING_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 bg-zinc-900 text-paper-raised px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors"
-          >
-            <Calendar className="w-4 h-4" />
-            Book a free call
-          </a>
-          <Link
-            href="/engage"
-            className="inline-flex items-center justify-center gap-2 border border-paper-sunken text-obsidian px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-paper-raised transition-colors"
-          >
-            Learn how Trixon works →
-          </Link>
         </div>
       </div>
-    </div>
+
+      {showModal && (
+        <ScopingModal
+          bookingUrl={BOOKING_URL}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+    </>
   );
 }

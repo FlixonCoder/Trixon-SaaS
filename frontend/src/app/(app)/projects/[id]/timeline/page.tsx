@@ -179,15 +179,15 @@ export default function TimelinePage() {
 
   if (projectLoading || !project || !analysis) {
     return (
-      <div className="min-h-screen bg-paper-sunken flex items-center justify-center">
+      <div className="min-h-screen bg-paper flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-zinc-800" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-paper-sunken">
-      <main className="w-full mx-auto px-6 py-10">
+    <div className="min-h-screen bg-paper">
+      <main className="w-full mx-auto px-4 sm:px-6 py-8 sm:py-10">
         <ProjectLayout project={project} analysis={analysis} activeTab="timeline">
           <div className="mt-6 space-y-6">
             <div>

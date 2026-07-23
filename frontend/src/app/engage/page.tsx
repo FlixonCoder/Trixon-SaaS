@@ -1,10 +1,10 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
-  Building,
   Calendar,
-  Check,
   Code2,
   FileText,
   Key,
@@ -12,12 +12,9 @@ import {
   Shield,
   Blocks,
 } from "lucide-react";
-
-export const metadata: Metadata = {
-  title: "Trixon Audit — How Trixon Works",
-  description:
-    "Trixon's Build-Operate-Transfer model — designed for founders who have something built but can't safely scale it.",
-};
+import { Navbar } from "@/components/layout/Navbar";
+import { Footer } from "@/components/layout/Footer";
+import { ScopingModal } from "@/components/scoping-modal";
 
 const BOOKING_URL = process.env.NEXT_PUBLIC_BOOKING_URL || "#";
 
@@ -64,8 +61,11 @@ const OWNERSHIP = [
 ];
 
 export default function EngagePage() {
+  const [showScopingModal, setShowScopingModal] = useState(false);
+
   return (
     <div className="min-h-screen bg-[#F6F4F4]">
+      <Navbar />
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
         {/* Header */}
         <div className="text-center mb-16">
@@ -80,7 +80,7 @@ export default function EngagePage() {
 
         {/* Phase Cards */}
         <div className="space-y-6 mb-16">
-          {PHASES.map((phase, i) => {
+          {PHASES.map((phase) => {
             const Icon = phase.icon;
             return (
               <div
@@ -151,16 +151,6 @@ export default function EngagePage() {
           </div>
         </div>
 
-        {/* Pricing Note */}
-        <div className="bg-white border border-[#e0dada] rounded-xl p-6 mb-12 text-center">
-          <p className="text-sm text-[#837e80] leading-relaxed">
-            Every engagement is scoped individually. Most founders invest{" "}
-            <strong className="text-[#1e1b1b]">$25,000–$60,000</strong> for the
-            full Build-Operate-Transfer. The audit fee ($497) is credited back
-            when you sign.
-          </p>
-        </div>
-
         {/* CTA */}
         <div className="bg-[#18181b] rounded-2xl p-8 sm:p-10 text-center">
           <h2 className="text-2xl font-bold text-white mb-3">
@@ -170,18 +160,24 @@ export default function EngagePage() {
             We&apos;ll review your audit together and tell you exactly what a
             Trixon engagement would look like for your situation.
           </p>
-          <a
-            href={BOOKING_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group inline-flex items-center gap-2 bg-white text-[#18181b] font-medium px-8 py-3.5 rounded-lg text-base hover:bg-white/90 transition-colors"
+          <button
+            onClick={() => setShowScopingModal(true)}
+            className="group inline-flex items-center gap-2 bg-white text-[#18181b] font-medium px-8 py-3.5 rounded-lg text-base hover:bg-white/90 transition-colors cursor-pointer mx-auto"
           >
             <Calendar className="w-4 h-4" />
             Book a free call
             <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-          </a>
+          </button>
         </div>
       </main>
+      <Footer />
+
+      {showScopingModal && (
+        <ScopingModal
+          bookingUrl={BOOKING_URL}
+          onClose={() => setShowScopingModal(false)}
+        />
+      )}
     </div>
   );
 }
