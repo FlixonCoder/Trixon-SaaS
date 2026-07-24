@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Send, Loader2, CheckCircle, Calendar } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 interface ScopingModalProps {
   onClose: () => void;
@@ -13,9 +14,30 @@ export function ScopingModal({ onClose, bookingUrl }: ScopingModalProps) {
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
   const [message, setMessage] = useState("");
+  const [role, setRole] = useState("");
+  const [goal, setGoal] = useState("");
+  const [referral, setReferral] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const supabase = createClient();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setEmail(session.user.email || "");
+        if (session.user.user_metadata) {
+          const meta = session.user.user_metadata;
+          setName(meta.full_name || "");
+          setCompany(meta.company_name || "");
+          setRole(meta.role || "");
+          setGoal(meta.primary_goal || "");
+          setReferral(meta.referral_source || "");
+        }
+      }
+    });
+  }, [supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +56,9 @@ export function ScopingModal({ onClose, bookingUrl }: ScopingModalProps) {
           email,
           company,
           message,
+          role,
+          primary_goal: goal,
+          referral_source: referral,
         }),
       });
 

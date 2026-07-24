@@ -49,9 +49,11 @@ export function TrixonShareModal({ analysisId, onClose }: TrixonShareModalProps)
       // 3. Fetch user profile details
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, company_name")
+        .select("full_name, company_name, role, primary_goal")
         .eq("id", session.user.id)
         .maybeSingle();
+
+      const userMetadata = session.user.user_metadata || {};
 
       // 4. Send email via Nodemailer route handler
       const res = await fetch("/api/send-email", {
@@ -61,13 +63,16 @@ export function TrixonShareModal({ analysisId, onClose }: TrixonShareModalProps)
         },
         body: JSON.stringify({
           type: "trixon_share",
-          name: profile?.full_name || session.user.email,
+          name: profile?.full_name || userMetadata.full_name || session.user.email,
           email: session.user.email,
-          company: profile?.company_name || "Unknown Company",
+          company: profile?.company_name || userMetadata.company_name || "Unknown Company",
           message: message || null,
           analysis_id: analysisId,
           repo_name: project.repo_name,
           health_score: analysis.health_score,
+          role: profile?.role || userMetadata.role || "",
+          primary_goal: profile?.primary_goal || userMetadata.primary_goal || "",
+          referral_source: userMetadata.referral_source || "",
         }),
       });
 

@@ -46,7 +46,29 @@ function OnboardingContent() {
     company_name: "",
     role: "",
     primary_goal: "",
+    referral_source: "",
   });
+  const [userEmail, setUserEmail] = useState("");
+
+  // Prefill email and details from existing user session
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUserEmail(session.user.email || "");
+        if (session.user.user_metadata) {
+          const meta = session.user.user_metadata;
+          setFormData(prev => ({
+            ...prev,
+            full_name: meta.full_name || prev.full_name,
+            company_name: meta.company_name || prev.company_name,
+            role: meta.role || prev.role,
+            primary_goal: meta.primary_goal || prev.primary_goal,
+            referral_source: meta.referral_source || prev.referral_source,
+          }));
+        }
+      }
+    });
+  }, [supabase]);
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,13 +79,35 @@ function OnboardingContent() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("No active session");
 
+      // 1. Update user metadata in Supabase Auth (safe place for all custom metadata)
+      const { error: metaError } = await supabase.auth.updateUser({
+        data: {
+          full_name: formData.full_name,
+          company_name: formData.company_name,
+          role: formData.role,
+          primary_goal: formData.primary_goal,
+          referral_source: formData.referral_source,
+        }
+      });
+      if (metaError) {
+        console.error("Failed to update user auth metadata:", metaError);
+      }
+
+      // 2. Save profile in DB (only columns present in the schema)
+      const dbPayload = {
+        full_name: formData.full_name,
+        company_name: formData.company_name,
+        role: formData.role,
+        primary_goal: formData.primary_goal,
+      };
+
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || ""}/api/v1/profile`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(dbPayload),
       });
 
       if (!res.ok) throw new Error("Failed to save profile");
@@ -275,58 +319,86 @@ function OnboardingContent() {
 
               <form onSubmit={handleProfileSubmit} className="space-y-5">
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-obsidian">Full Name</label>
+                  <label className="block text-sm font-medium text-obsidian">Email Address</label>
+                  <input
+                    type="email"
+                    disabled
+                    value={userEmail}
+                    className="w-full px-4 py-2.5 bg-zinc-100 border border-paper-sunken rounded-lg text-sm text-ash cursor-not-allowed select-none"
+                    placeholder="you@company.com"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-[#1e1b1b]">What should we call you? (Name)</label>
                   <input
                     type="text"
                     required
                     value={formData.full_name}
                     onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-paper-raised border border-paper-sunken rounded-lg focus:outline-none focus:ring-2 focus:ring-[#18181b]/20 focus:border-obsidian transition-all text-sm"
+                    className="w-full px-4 py-2.5 bg-paper-raised border border-paper-sunken rounded-lg focus:outline-none focus:ring-2 focus:ring-[#18181b]/20 focus:border-obsidian transition-all text-sm text-[#1e1b1b]"
                     placeholder="Jane Doe"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-obsidian">Company Name</label>
+                  <label className="block text-sm font-medium text-[#1e1b1b]">Company Name</label>
                   <input
                     type="text"
                     required
                     value={formData.company_name}
                     onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-paper-raised border border-paper-sunken rounded-lg focus:outline-none focus:ring-2 focus:ring-[#18181b]/20 focus:border-obsidian transition-all text-sm"
+                    className="w-full px-4 py-2.5 bg-paper-raised border border-paper-sunken rounded-lg focus:outline-none focus:ring-2 focus:ring-[#18181b]/20 focus:border-obsidian transition-all text-sm text-[#1e1b1b]"
                     placeholder="Acme Corp"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-obsidian">Your Role</label>
+                  <label className="block text-sm font-medium text-[#1e1b1b]">Your Role in the Company</label>
                   <select
                     required
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-paper-raised border border-paper-sunken rounded-lg focus:outline-none focus:ring-2 focus:ring-[#18181b]/20 focus:border-obsidian transition-all text-sm appearance-none"
+                    className="w-full px-4 py-2.5 bg-paper-raised border border-paper-sunken rounded-lg focus:outline-none focus:ring-2 focus:ring-[#18181b]/20 focus:border-obsidian transition-all text-sm text-[#1e1b1b] appearance-none"
                   >
-                    <option value="" disabled>Select a role…</option>
+                    <option value="" disabled>Select your role…</option>
                     <option value="founder">Founder / Co-founder</option>
-                    <option value="agency">Development Agency</option>
-                    <option value="other">Other</option>
+                    <option value="investor">Investor / VC Partner</option>
+                    <option value="agency">Developer / Team Agency</option>
                   </select>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-obsidian">Primary Goal</label>
+                  <label className="block text-sm font-medium text-[#1e1b1b]">What will you use Trixon for?</label>
                   <select
                     required
                     value={formData.primary_goal}
                     onChange={(e) => setFormData({ ...formData, primary_goal: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-paper-raised border border-paper-sunken rounded-lg focus:outline-none focus:ring-2 focus:ring-[#18181b]/20 focus:border-obsidian transition-all text-sm appearance-none"
+                    className="w-full px-4 py-2.5 bg-paper-raised border border-paper-sunken rounded-lg focus:outline-none focus:ring-2 focus:ring-[#18181b]/20 focus:border-obsidian transition-all text-sm text-[#1e1b1b] appearance-none"
                   >
-                    <option value="" disabled>What are you looking to do?</option>
-                    <option value="prepare_investors">Prepare for investors / due diligence</option>
-                    <option value="prepare_hire">Prepare to hire developers</option>
-                    <option value="enterprise_security">Answer an enterprise security question</option>
-                    <option value="recover_agency">Recover from an agency codebase</option>
+                    <option value="" disabled>Select your primary goal…</option>
+                    <option value="prepare_investors">Prepare for investors / technical due diligence</option>
+                    <option value="prepare_hire">Prepare to onboard / hire developers</option>
+                    <option value="enterprise_security">Audit codebase security &amp; exposed variables</option>
+                    <option value="recover_agency">Review code quality delivered by an agency</option>
                     <option value="general_audit">General audit / peace of mind</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium text-[#1e1b1b]">Where did you hear about us?</label>
+                  <select
+                    required
+                    value={formData.referral_source}
+                    onChange={(e) => setFormData({ ...formData, referral_source: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-paper-raised border border-paper-sunken rounded-lg focus:outline-none focus:ring-2 focus:ring-[#18181b]/20 focus:border-obsidian transition-all text-sm text-[#1e1b1b] appearance-none"
+                  >
+                    <option value="" disabled>Select an option…</option>
+                    <option value="Google Search">Google Search</option>
+                    <option value="Twitter/X">Twitter / X</option>
+                    <option value="LinkedIn">LinkedIn</option>
+                    <option value="Word of Mouth">Word of Mouth (Friend/Colleague)</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
 

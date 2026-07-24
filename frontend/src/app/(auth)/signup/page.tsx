@@ -11,6 +11,7 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [agreeToPrivacy, setAgreeToPrivacy] = useState(false);
   const supabase = createClient();
 
   const handleEmailSignup = async (e: React.FormEvent) => {
@@ -118,10 +119,28 @@ export default function SignupPage() {
           />
         </div>
 
+        <div className="flex items-start gap-2 pt-1 pb-2">
+          <input
+            id="agree-privacy"
+            type="checkbox"
+            checked={agreeToPrivacy}
+            onChange={(e) => setAgreeToPrivacy(e.target.checked)}
+            required
+            className="w-4 h-4 rounded text-obsidian border-paper-sunken focus:ring-obsidian mt-0.5 cursor-pointer accent-zinc-800"
+          />
+          <label htmlFor="agree-privacy" className="text-xs text-ash leading-normal cursor-pointer select-none">
+            I agree to the{" "}
+            <Link href="/privacy" target="_blank" className="font-semibold text-obsidian underline hover:text-[#27272a]">
+              Privacy Policy
+            </Link>{" "}
+            for data collection &amp; VCS token storage.
+          </label>
+        </div>
+
         <button
           type="submit"
-          disabled={isLoading}
-          className="w-full flex items-center justify-center gap-2 bg-obsidian text-paper-raised px-4 py-2.5 rounded-lg font-medium hover:bg-[#27272a] transition-all hover:shadow-lg hover:shadow-obsidian/20 disabled:opacity-70 disabled:cursor-not-allowed mt-2"
+          disabled={isLoading || !agreeToPrivacy}
+          className="w-full flex items-center justify-center gap-2 bg-obsidian text-paper-raised px-4 py-2.5 rounded-lg font-medium hover:bg-[#27272a] transition-all hover:shadow-lg hover:shadow-obsidian/20 disabled:opacity-50 disabled:cursor-not-allowed mt-1"
         >
           {isLoading ? (
             <>
