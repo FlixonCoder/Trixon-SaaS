@@ -46,13 +46,19 @@ export default async function DashboardPage() {
   if (!session) redirect("/login");
 
   let plan = "free";
+  let profileCompleted = false;
   try {
     const profile = await api.getProfile(session.access_token);
     plan = profile.plan;
+    profileCompleted = !!(profile.full_name && profile.company_name);
   } catch (err) {
     console.error("Failed to load profile:", err);
   }
-  
+
+  if (!profileCompleted) {
+    redirect("/onboarding");
+  }
+
   const isFreeTier = process.env.NEXT_PUBLIC_BETA_MODE === "true" ? false : (plan === "free" || !plan);
 
   let projects: Project[] = [];

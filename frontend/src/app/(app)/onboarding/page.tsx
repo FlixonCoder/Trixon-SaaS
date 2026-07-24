@@ -50,25 +50,35 @@ function OnboardingContent() {
   });
   const [userEmail, setUserEmail] = useState("");
 
-  // Prefill email and details from existing user session
+  // Prefill email and details from existing user session & profile
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || !session.user) return;
+
         setUserEmail(session.user.email || "");
-        if (session.user.user_metadata) {
-          const meta = session.user.user_metadata;
-          setFormData(prev => ({
-            ...prev,
-            full_name: meta.full_name || prev.full_name,
-            company_name: meta.company_name || prev.company_name,
-            role: meta.role || prev.role,
-            primary_goal: meta.primary_goal || prev.primary_goal,
-            referral_source: meta.referral_source || prev.referral_source,
-          }));
+
+        // Fetch DB profile to check if already completed
+        const profile = await api.getProfile(session.access_token);
+        const isProfileComplete = !!(profile.full_name && profile.company_name);
+
+        setFormData({
+          full_name: profile.full_name || "",
+          company_name: profile.company_name || "",
+          role: profile.role || "",
+          primary_goal: profile.primary_goal || "",
+          referral_source: session.user.user_metadata?.referral_source || "",
+        });
+
+        if (isProfileComplete && searchParams.get("step") !== "1") {
+          setStep(2);
         }
+      } catch (err) {
+        console.error("Failed to load profile in onboarding:", err);
       }
-    });
-  }, [supabase]);
+    })();
+  }, [supabase, searchParams]);
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
