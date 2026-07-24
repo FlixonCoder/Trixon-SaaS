@@ -104,6 +104,11 @@ async def update_profile(
             detail="No fields to update",
         )
 
+    # Map roles that violate DB constraints to a safe default ('agency')
+    if "role" in update_data and update_data["role"]:
+        if update_data["role"] not in ["founder", "investor", "agency"]:
+            update_data["role"] = "agency"
+
     try:
         # Add the user ID to the update data so upsert knows which record to update/insert
         update_data["id"] = user["id"]

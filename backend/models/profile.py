@@ -12,7 +12,7 @@ class ProfileUpdate(BaseModel):
 
     full_name: str | None = Field(None, min_length=1, max_length=200)
     company_name: str | None = Field(None, max_length=200)
-    role: str | None = Field(None, pattern="^(founder|agency|other)$")
+    role: str | None = Field(None, max_length=200)
     primary_goal: str | None = Field(None, max_length=500)
 
 
