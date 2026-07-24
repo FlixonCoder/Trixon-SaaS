@@ -115,7 +115,7 @@ def _search_code(project_id: str, query: str, supabase) -> list[SearchResult]:
         .execute()
     )
 
-    if not snapshot_resp.data:
+    if not snapshot_resp or not snapshot_resp.data:
         return []
 
     key_files: dict = snapshot_resp.data.get("key_files") or {}
@@ -286,7 +286,7 @@ async def search_project(
         .execute()
     )
 
-    if not project_resp.data:
+    if not project_resp or not project_resp.data:
         raise HTTPException(status_code=404, detail="Project not found")
 
     results: list[SearchResult] = []

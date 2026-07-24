@@ -65,11 +65,11 @@ Current project context is provided below. Use it as your exclusive source of tr
 def fetch_code_snapshot(supabase, analysis_id: str) -> dict[str, str]:
     """Fetches the persisted key_files snapshot for this analysis, if it exists."""
     try:
-        result = supabase.table("code_snapshots")\
+        resp = supabase.table("code_snapshots")\
             .select("key_files")\
             .eq("analysis_id", analysis_id)\
-            .maybe_single().execute().data
-        return result["key_files"] if result else {}
+            .maybe_single().execute()
+        return resp.data["key_files"] if (resp and resp.data) else {}
     except Exception as e:
         logger.warning(f"Failed to fetch code snapshot for analysis {analysis_id}: {e}")
         return {}
@@ -202,7 +202,7 @@ async def get_chat_history(
         .maybe_single()
         .execute()
     )
-    if not project_resp.data:
+    if not project_resp or not project_resp.data:
         raise HTTPException(status_code=404, detail="Project not found")
 
     offset = (page - 1) * page_size
@@ -254,7 +254,7 @@ async def send_chat_message(
         .maybe_single()
         .execute()
     )
-    if not project_resp.data:
+    if not project_resp or not project_resp.data:
         raise HTTPException(status_code=404, detail="Project not found")
 
     repo_name = project_resp.data.get("repo_name", "your repo")

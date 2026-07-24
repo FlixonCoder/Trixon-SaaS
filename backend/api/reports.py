@@ -48,7 +48,7 @@ async def simplify_report_section(user: CurrentUser, report_id: str, body: Simpl
         .execute()
     )
 
-    if not report_resp.data:
+    if not report_resp or not report_resp.data:
         raise HTTPException(status_code=404, detail="Report not found")
 
     try:
@@ -85,7 +85,7 @@ async def toggle_report_share(user: CurrentUser, report_id: str, body: ShareRequ
         .execute()
     )
 
-    if not report_resp.data:
+    if not report_resp or not report_resp.data:
         raise HTTPException(status_code=404, detail="Report not found")
 
     try:

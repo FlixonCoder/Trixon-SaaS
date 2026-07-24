@@ -38,7 +38,7 @@ async def get_shared_report(token: str) -> PublicReportResponse:
         .execute()
     )
 
-    if not report_resp.data:
+    if not report_resp or not report_resp.data:
         raise HTTPException(status_code=404, detail="Shared report not found")
 
     if not report_resp.data.get("share_enabled"):

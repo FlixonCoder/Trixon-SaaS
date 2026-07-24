@@ -435,7 +435,7 @@ async def add_reports_to_snapshot(
         .maybe_single()
         .execute()
     )
-    if not analysis_resp.data:
+    if not analysis_resp or not analysis_resp.data:
         raise HTTPException(status_code=404, detail="No completed analysis found. Run a full analysis first.")
 
     analysis = analysis_resp.data
