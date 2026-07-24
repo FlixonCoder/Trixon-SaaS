@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { redirect } from "next/navigation";
 import { LogOut, Settings, LayoutDashboard, FolderGit2, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { api } from "@/lib/api";
@@ -18,8 +19,12 @@ export default async function DashboardLayout({
       const profile = await api.getProfile(session.access_token);
       isAdmin = !!profile?.is_admin;
       console.log("LAYOUT_SESSION: email =", session.user.email, "id =", session.user.id, "isAdmin =", isAdmin);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to fetch profile in layout:", err);
+      const errMsg = err?.message || "";
+      if (errMsg.includes("Invalid or expired token") || errMsg.includes("401")) {
+        redirect("/auth/logout");
+      }
     }
   } else {
     console.log("LAYOUT_SESSION: No active session");

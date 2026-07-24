@@ -2,7 +2,28 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { Loader2, ArrowRight, GitBranch, FolderGit2, CheckCircle, BarChart2 } from "lucide-react";
+import { 
+  Loader2, 
+  ArrowRight, 
+  ArrowLeft,
+  GitBranch, 
+  FolderGit2, 
+  CheckCircle, 
+  BarChart2,
+  Check,
+  Mail,
+  Building2,
+  Sparkles,
+  UserCheck,
+  TrendingUp,
+  Terminal,
+  Compass,
+  Search,
+  Share2,
+  HelpCircle,
+  MessageSquare,
+  Shield
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { api, type RepoItem, type CatalogItem } from "@/lib/api";
 import { RepoPicker } from "@/components/repo-picker";
@@ -23,6 +44,7 @@ function OnboardingContent() {
   const initialStep = searchParams.get("step") === "2" ? 2 : 1;
 
   const [step, setStep] = useState<OnboardingStep>(initialStep);
+  const [questionIndex, setQuestionIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [repos, setRepos] = useState<RepoItem[]>([]);
   const [reposLoading, setReposLoading] = useState(false);
@@ -80,10 +102,9 @@ function OnboardingContent() {
     })();
   }, [supabase, searchParams]);
 
-  const handleProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitQuestionnaire = async (finalData = formData) => {
     setIsLoading(true);
-    setPrimaryGoal(formData.primary_goal);
+    setPrimaryGoal(finalData.primary_goal);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -92,11 +113,11 @@ function OnboardingContent() {
       // 1. Update user metadata in Supabase Auth (safe place for all custom metadata)
       const { error: metaError } = await supabase.auth.updateUser({
         data: {
-          full_name: formData.full_name,
-          company_name: formData.company_name,
-          role: formData.role,
-          primary_goal: formData.primary_goal,
-          referral_source: formData.referral_source,
+          full_name: finalData.full_name,
+          company_name: finalData.company_name,
+          role: finalData.role,
+          primary_goal: finalData.primary_goal,
+          referral_source: finalData.referral_source,
         }
       });
       if (metaError) {
@@ -105,10 +126,10 @@ function OnboardingContent() {
 
       // 2. Save profile in DB (only columns present in the schema)
       const dbPayload = {
-        full_name: formData.full_name,
-        company_name: formData.company_name,
-        role: formData.role,
-        primary_goal: formData.primary_goal,
+        full_name: finalData.full_name,
+        company_name: finalData.company_name,
+        role: finalData.role,
+        primary_goal: finalData.primary_goal,
       };
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || ""}/api/v1/profile`, {
@@ -127,6 +148,32 @@ function OnboardingContent() {
       alert("Failed to save profile. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleNext = () => {
+    if (questionIndex === 0) {
+      setQuestionIndex(1);
+    } else if (questionIndex === 1) {
+      if (!formData.full_name.trim()) return;
+      setQuestionIndex(2);
+    } else if (questionIndex === 2) {
+      setQuestionIndex(3);
+    } else if (questionIndex === 3) {
+      if (!formData.company_name.trim()) return;
+      setQuestionIndex(4);
+    } else if (questionIndex === 4) {
+      if (!formData.role) return;
+      setQuestionIndex(5);
+    } else if (questionIndex === 5) {
+      if (!formData.primary_goal) return;
+      setQuestionIndex(6);
+    }
+  };
+
+  const handleBack = () => {
+    if (questionIndex > 0) {
+      setQuestionIndex(prev => prev - 1);
     }
   };
 
@@ -297,6 +344,382 @@ function OnboardingContent() {
     .reduce((sum, item) => sum + item.estimated_tokens, 0);
   const estimatedMinutes = Math.ceil((selectedReports.length * 60) / 60);
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      if (questionIndex === 1 && !formData.full_name.trim()) return;
+      if (questionIndex === 3 && !formData.company_name.trim()) return;
+      e.preventDefault();
+      handleNext();
+    }
+  };
+
+  if (step === 1) {
+    const progressPercent = Math.round((questionIndex / 6) * 100);
+
+    return (
+      <div 
+        className="min-h-screen w-full bg-[#0a0a0a] text-zinc-100 flex flex-col justify-between p-6 sm:p-12 font-sans relative overflow-hidden"
+        onKeyDown={handleKeyDown}
+      >
+        {/* Radial backgrounds */}
+        <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-[#039a85]/10 blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-zinc-800/10 blur-[120px] pointer-events-none" />
+
+        {/* Top Header & Progress */}
+        <div className="w-full max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 z-10">
+          <div className="flex items-center gap-3">
+            <Image
+              src="/light-logo.png"
+              alt="Trixon"
+              width={90}
+              height={24}
+              className="h-5.5 w-auto object-contain brightness-0 invert"
+            />
+            <span className="text-[10px] tracking-widest text-zinc-500 font-mono uppercase bg-zinc-900 border border-zinc-800/80 px-2.5 py-0.5 rounded-full">
+              Onboarding
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4 w-full sm:w-auto">
+            {questionIndex > 0 && (
+              <span className="text-xs text-zinc-400 font-mono">
+                {questionIndex} / 6
+              </span>
+            )}
+            <div className="flex-1 sm:flex-initial w-32 sm:w-48 h-1 bg-zinc-900 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-[#039a85] to-emerald-500 transition-all duration-500 ease-out"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Slides */}
+        <div className="w-full max-w-2xl mx-auto py-12 flex-1 flex flex-col justify-center z-10">
+          {questionIndex === 0 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-700">
+              <div className="inline-flex items-center gap-2 bg-[#039a85]/10 border border-[#039a85]/20 text-[#039a85] text-xs font-semibold px-3 py-1 rounded-full">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Zero configuration required</span>
+              </div>
+              <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white leading-tight font-display">
+                Welcome to Trixon.
+              </h1>
+              <p className="text-zinc-400 text-lg leading-relaxed max-w-xl">
+                Let&apos;s personalize your experience to get you actionable codebase intelligence. We&apos;ll configure your workspace in under 60 seconds.
+              </p>
+              <div className="pt-4 flex items-center gap-4">
+                <button
+                  onClick={handleNext}
+                  className="bg-white text-zinc-950 hover:bg-zinc-105 px-8 py-3.5 rounded-xl font-bold text-sm transition-all hover:scale-[1.02] shadow-lg shadow-white/5 active:scale-[0.98]"
+                >
+                  Let&apos;s get started
+                </button>
+                <span className="hidden sm:inline text-xs text-zinc-500 font-mono">
+                  press <kbd className="bg-zinc-900 px-1.5 py-1 rounded border border-zinc-800">Enter ↵</kbd>
+                </span>
+              </div>
+            </div>
+          )}
+
+          {questionIndex === 1 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-500">
+              <div className="text-xs text-[#039a85] font-mono tracking-widest uppercase">01 / Profile Name</div>
+              <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+                First, what should we call you?
+              </h2>
+              <p className="text-zinc-400 text-sm leading-relaxed max-w-md">
+                Your name helps us personalize notifications, emails, and scoping reports.
+              </p>
+              <div className="relative pt-2">
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  placeholder="Jane Doe"
+                  value={formData.full_name}
+                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                  className="w-full bg-transparent text-white border-b-2 border-zinc-800 focus:border-[#039a85] py-4 text-2xl sm:text-3xl focus:outline-none transition-all placeholder-zinc-700 font-medium"
+                />
+              </div>
+              <div className="pt-4 flex items-center gap-4">
+                <button
+                  onClick={handleNext}
+                  disabled={!formData.full_name.trim()}
+                  className="bg-white text-zinc-950 disabled:opacity-50 disabled:pointer-events-none hover:bg-zinc-100 px-6 py-3 rounded-lg font-bold text-sm transition-all"
+                >
+                  Continue
+                </button>
+                <span className="hidden sm:inline text-xs text-zinc-500 font-mono">
+                  press <kbd className="bg-zinc-900 px-1.5 py-1 rounded border border-zinc-800">Enter ↵</kbd>
+                </span>
+              </div>
+            </div>
+          )}
+
+          {questionIndex === 2 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-500">
+              <div className="text-xs text-[#039a85] font-mono tracking-widest uppercase">02 / Email Verification</div>
+              <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+                Confirm your email address
+              </h2>
+              <p className="text-zinc-400 text-sm leading-relaxed max-w-md">
+                This is where we send weekly technical summary alerts. Pre-populated from sign up.
+              </p>
+              <div className="relative pt-2">
+                <div className="flex items-center gap-3 border-b-2 border-zinc-800 py-4">
+                  <Mail className="w-6 h-6 text-zinc-500" />
+                  <input
+                    type="email"
+                    disabled
+                    value={userEmail}
+                    className="w-full bg-transparent text-zinc-400 text-2xl sm:text-3xl focus:outline-none cursor-not-allowed select-none font-medium"
+                  />
+                </div>
+              </div>
+              <div className="pt-4 flex items-center gap-4">
+                <button
+                  onClick={handleNext}
+                  className="bg-white text-zinc-950 hover:bg-zinc-105 px-6 py-3 rounded-lg font-bold text-sm transition-all"
+                >
+                  Verify &amp; Continue
+                </button>
+                <span className="hidden sm:inline text-xs text-zinc-500 font-mono">
+                  press <kbd className="bg-zinc-900 px-1.5 py-1 rounded border border-zinc-800">Enter ↵</kbd>
+                </span>
+              </div>
+            </div>
+          )}
+
+          {questionIndex === 3 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-500">
+              <div className="text-xs text-[#039a85] font-mono tracking-widest uppercase">03 / Company context</div>
+              <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+                What is your company or project name?
+              </h2>
+              <p className="text-zinc-400 text-sm leading-relaxed max-w-md">
+                Your connected code repositories will be organized under this project context.
+              </p>
+              <div className="relative pt-2">
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  placeholder="Acme Corp"
+                  value={formData.company_name}
+                  onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                  className="w-full bg-transparent text-white border-b-2 border-zinc-800 focus:border-[#039a85] py-4 text-2xl sm:text-3xl focus:outline-none transition-all placeholder-zinc-700 font-medium"
+                />
+              </div>
+              <div className="pt-4 flex items-center gap-4">
+                <button
+                  onClick={handleNext}
+                  disabled={!formData.company_name.trim()}
+                  className="bg-white text-zinc-950 disabled:opacity-50 disabled:pointer-events-none hover:bg-zinc-100 px-6 py-3 rounded-lg font-bold text-sm transition-all"
+                >
+                  Continue
+                </button>
+                <span className="hidden sm:inline text-xs text-zinc-500 font-mono">
+                  press <kbd className="bg-zinc-900 px-1.5 py-1 rounded border border-zinc-800">Enter ↵</kbd>
+                </span>
+              </div>
+            </div>
+          )}
+
+          {questionIndex === 4 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-500">
+              <div className="text-xs text-[#039a85] font-mono tracking-widest uppercase">04 / Company Role</div>
+              <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight animate-fade-in">
+                What is your role at {formData.company_name || "your company"}?
+              </h2>
+              <p className="text-zinc-400 text-sm leading-relaxed max-w-md">
+                Select your role to help customize your repository insights dashboard.
+              </p>
+              
+              <div className="grid grid-cols-1 gap-3 pt-2">
+                {[
+                  { id: "founder", title: "Founder / Co-founder", desc: "I own the product vision and want to scale fast.", icon: UserCheck },
+                  { id: "investor", title: "Investor / VC Partner", desc: "I perform due diligence and evaluate codebase health.", icon: TrendingUp },
+                  { id: "agency", title: "Developer / Team Agency", desc: "I deliver code and manage execution teams.", icon: Terminal }
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const isSelected = formData.role === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        const updated = { ...formData, role: item.id };
+                        setFormData(updated);
+                        setTimeout(() => setQuestionIndex(5), 220);
+                      }}
+                      className={`flex items-start gap-4 p-5 rounded-xl border text-left transition-all ${
+                        isSelected 
+                          ? "bg-zinc-900 border-[#039a85] ring-1 ring-[#039a85]" 
+                          : "bg-zinc-950 border-zinc-900 hover:border-zinc-700/60"
+                      }`}
+                    >
+                      <div className={`p-2.5 rounded-lg ${isSelected ? "bg-[#039a85]/10 text-[#039a85]" : "bg-zinc-900 text-zinc-400"}`}>
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-white">{item.title}</div>
+                        <div className="text-xs text-zinc-500 mt-1">{item.desc}</div>
+                      </div>
+                      {isSelected && (
+                        <div className="w-5 h-5 rounded-full bg-[#039a85] text-white flex items-center justify-center self-center">
+                          <Check className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {questionIndex === 5 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-500">
+              <div className="text-xs text-[#039a85] font-mono tracking-widest uppercase">05 / Main Objective</div>
+              <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight animate-fade-in">
+                What will you use Trixon for?
+              </h2>
+              <p className="text-zinc-400 text-sm leading-relaxed max-w-md">
+                We will prioritize analysis metrics and timeline tracking based on this goal.
+              </p>
+              
+              <div className="grid grid-cols-1 gap-3 pt-2">
+                {[
+                  { id: "prepare_investors", title: "Prepare for investors / technical due diligence", icon: TrendingUp },
+                  { id: "prepare_hire", title: "Prepare to onboard / hire developers", icon: UserCheck },
+                  { id: "enterprise_security", title: "Audit codebase security & exposed variables", icon: Shield },
+                  { id: "recover_agency", title: "Review code quality delivered by an agency", icon: FolderGit2 },
+                  { id: "general_audit", title: "General audit / peace of mind", icon: Sparkles }
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const isSelected = formData.primary_goal === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        const updated = { ...formData, primary_goal: item.id };
+                        setFormData(updated);
+                        setTimeout(() => setQuestionIndex(6), 220);
+                      }}
+                      className={`flex items-center gap-4 p-4 rounded-xl border text-left transition-all ${
+                        isSelected 
+                          ? "bg-zinc-900 border-[#039a85] ring-1 ring-[#039a85]" 
+                          : "bg-zinc-950 border-zinc-900 hover:border-zinc-700/60"
+                      }`}
+                    >
+                      <div className={`p-2.5 rounded-lg ${isSelected ? "bg-[#039a85]/10 text-[#039a85]" : "bg-zinc-900 text-zinc-400"}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="text-sm font-semibold text-white flex-1">{item.title}</div>
+                      {isSelected && (
+                        <div className="w-5 h-5 rounded-full bg-[#039a85] text-white flex items-center justify-center">
+                          <Check className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {questionIndex === 6 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-500">
+              <div className="text-xs text-[#039a85] font-mono tracking-widest uppercase">06 / Acquisition Source</div>
+              <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight animate-fade-in">
+                Where did you hear about Trixon?
+              </h2>
+              <p className="text-zinc-400 text-sm leading-relaxed max-w-md">
+                We are founder-led and grow primarily by word of mouth. Let us know how you found us.
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                {[
+                  { id: "Google Search", title: "Google Search", icon: Search },
+                  { id: "Twitter/X", title: "Twitter / X", icon: Compass },
+                  { id: "LinkedIn", title: "LinkedIn", icon: Share2 },
+                  { id: "Word of Mouth", title: "Friend / Colleague", icon: MessageSquare },
+                  { id: "Other", title: "Other", icon: HelpCircle }
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const isSelected = formData.referral_source === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        const updated = { ...formData, referral_source: item.id };
+                        setFormData(updated);
+                        submitQuestionnaire(updated);
+                      }}
+                      className={`flex items-center gap-3.5 p-4 rounded-xl border text-left transition-all ${
+                        isSelected 
+                          ? "bg-zinc-900 border-[#039a85] ring-1 ring-[#039a85]" 
+                          : "bg-zinc-950 border-zinc-900 hover:border-zinc-700/60"
+                      }`}
+                    >
+                      <div className={`p-2 rounded-lg bg-zinc-900 ${isSelected ? "text-[#039a85]" : "text-zinc-400"}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="text-sm font-semibold text-white flex-1">{item.title}</div>
+                      {isSelected && (
+                        <div className="w-5 h-5 rounded-full bg-[#039a85] text-white flex items-center justify-center">
+                          <Check className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Navigation */}
+        <div className="w-full max-w-5xl mx-auto flex items-center justify-between border-t border-zinc-900/60 pt-6 z-10">
+          <div>
+            {questionIndex > 0 ? (
+              <button
+                onClick={handleBack}
+                className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-semibold"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </button>
+            ) : (
+              <div />
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            {isLoading ? (
+              <div className="flex items-center gap-2 text-zinc-500 text-xs">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Setting up workspace...
+              </div>
+            ) : questionIndex > 0 && questionIndex < 6 ? (
+              <button
+                onClick={handleNext}
+                disabled={
+                  (questionIndex === 1 && !formData.full_name.trim()) ||
+                  (questionIndex === 3 && !formData.company_name.trim())
+                }
+                className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800/80 hover:bg-zinc-800 text-white disabled:opacity-40 disabled:cursor-not-allowed px-5 py-2.5 rounded-xl text-sm font-semibold transition-all"
+              >
+                Next
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-paper-sunken flex flex-col">
       {/* Header */}
@@ -309,7 +732,7 @@ function OnboardingContent() {
           className="h-6 w-auto object-contain"
         />
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${step >= 1 ? "bg-obsidian" : "bg-paper-sunken"}`} />
+          <div className="w-2 h-2 rounded-full bg-paper-sunken" />
           <div className={`w-2 h-2 rounded-full ${step >= 2 ? "bg-obsidian" : "bg-paper-sunken"}`} />
           <div className={`w-2 h-2 rounded-full ${step >= 3 ? "bg-obsidian" : "bg-paper-sunken"}`} />
         </div>
@@ -318,114 +741,7 @@ function OnboardingContent() {
       {/* Main Content */}
       <main className="flex-1 flex items-start justify-center p-6 pt-12">
         <div className="w-full max-w-md">
-          {step === 1 ? (
-            <div className="bg-paper-raised rounded-2xl shadow-sm border border-paper-sunken p-8">
-              <div className="mb-8">
-                <h1 className="text-2xl font-bold text-obsidian mb-2">Welcome to Trixon</h1>
-                <p className="text-ash text-sm">
-                  Let's personalise your experience to give you the best insights.
-                </p>
-              </div>
-
-              <form onSubmit={handleProfileSubmit} className="space-y-5">
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-obsidian">Email Address</label>
-                  <input
-                    type="email"
-                    disabled
-                    value={userEmail}
-                    className="w-full px-4 py-2.5 bg-zinc-100 border border-paper-sunken rounded-lg text-sm text-ash cursor-not-allowed select-none"
-                    placeholder="you@company.com"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-[#1e1b1b]">What should we call you? (Name)</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-paper-raised border border-paper-sunken rounded-lg focus:outline-none focus:ring-2 focus:ring-[#18181b]/20 focus:border-obsidian transition-all text-sm text-[#1e1b1b]"
-                    placeholder="Jane Doe"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-[#1e1b1b]">Company Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.company_name}
-                    onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-paper-raised border border-paper-sunken rounded-lg focus:outline-none focus:ring-2 focus:ring-[#18181b]/20 focus:border-obsidian transition-all text-sm text-[#1e1b1b]"
-                    placeholder="Acme Corp"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-[#1e1b1b]">Your Role in the Company</label>
-                  <select
-                    required
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-paper-raised border border-paper-sunken rounded-lg focus:outline-none focus:ring-2 focus:ring-[#18181b]/20 focus:border-obsidian transition-all text-sm text-[#1e1b1b] appearance-none"
-                  >
-                    <option value="" disabled>Select your role…</option>
-                    <option value="founder">Founder / Co-founder</option>
-                    <option value="investor">Investor / VC Partner</option>
-                    <option value="agency">Developer / Team Agency</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-[#1e1b1b]">What will you use Trixon for?</label>
-                  <select
-                    required
-                    value={formData.primary_goal}
-                    onChange={(e) => setFormData({ ...formData, primary_goal: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-paper-raised border border-paper-sunken rounded-lg focus:outline-none focus:ring-2 focus:ring-[#18181b]/20 focus:border-obsidian transition-all text-sm text-[#1e1b1b] appearance-none"
-                  >
-                    <option value="" disabled>Select your primary goal…</option>
-                    <option value="prepare_investors">Prepare for investors / technical due diligence</option>
-                    <option value="prepare_hire">Prepare to onboard / hire developers</option>
-                    <option value="enterprise_security">Audit codebase security &amp; exposed variables</option>
-                    <option value="recover_agency">Review code quality delivered by an agency</option>
-                    <option value="general_audit">General audit / peace of mind</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-[#1e1b1b]">Where did you hear about us?</label>
-                  <select
-                    required
-                    value={formData.referral_source}
-                    onChange={(e) => setFormData({ ...formData, referral_source: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-paper-raised border border-paper-sunken rounded-lg focus:outline-none focus:ring-2 focus:ring-[#18181b]/20 focus:border-obsidian transition-all text-sm text-[#1e1b1b] appearance-none"
-                  >
-                    <option value="" disabled>Select an option…</option>
-                    <option value="Google Search">Google Search</option>
-                    <option value="Twitter/X">Twitter / X</option>
-                    <option value="LinkedIn">LinkedIn</option>
-                    <option value="Word of Mouth">Word of Mouth (Friend/Colleague)</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2 bg-obsidian text-paper-raised px-4 py-3 rounded-lg font-medium hover:bg-[#27272a] transition-all hover:shadow-lg hover:shadow-obsidian/20 disabled:opacity-70 mt-4"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>Continue <ArrowRight className="w-4 h-4" /></>
-                  )}
-                </button>
-              </form>
-            </div>
-          ) : step === 2 ? (
+          {step === 2 ? (
             <div className="space-y-4">
               {/* Step 2a: Connect VCS */}
               {!connected && !limitReached && (
