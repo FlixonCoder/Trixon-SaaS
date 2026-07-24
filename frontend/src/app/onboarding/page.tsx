@@ -358,7 +358,7 @@ function OnboardingContent() {
 
     return (
       <div 
-        className="min-h-screen w-full bg-[#0a0a0a] text-zinc-100 flex flex-col justify-between p-6 sm:p-12 font-sans relative overflow-hidden"
+        className="h-screen w-full bg-[#0a0a0a] text-zinc-100 flex flex-col justify-between p-6 sm:p-12 font-sans relative overflow-hidden"
         onKeyDown={handleKeyDown}
       >
         {/* Radial backgrounds */}
@@ -396,7 +396,7 @@ function OnboardingContent() {
         </div>
 
         {/* Slides */}
-        <div className="w-full max-w-2xl mx-auto py-12 flex-1 flex flex-col justify-center z-10">
+        <div className="w-full max-w-2xl mx-auto py-6 sm:py-8 flex-1 flex flex-col justify-center z-10">
           {questionIndex === 0 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-700">
               <div className="inline-flex items-center gap-2 bg-[#039a85]/10 border border-[#039a85]/20 text-[#039a85] text-xs font-semibold px-3 py-1 rounded-full">
