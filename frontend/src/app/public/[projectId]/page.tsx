@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { ExternalLink, TrendingUp, TrendingDown, Minus, AlertCircle, GitBranch, Calendar, Layers } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -263,11 +264,16 @@ export default async function PublicProjectPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-[#f9f9f8]">
-      {/* Top nav bar */}
       <div className="bg-[#1e1b1b] px-4 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-6 h-6 bg-[#039a85] rounded-md" />
-          <span className="text-white font-bold text-sm tracking-tight">Trixon</span>
+          <Image
+            src="/light-logo.png"
+            alt="Trixon"
+            width={90}
+            height={24}
+            className="h-6 w-auto object-contain"
+            priority
+          />
         </Link>
         <Link
           href="https://trixon.cloud"
@@ -436,11 +442,15 @@ export default async function PublicProjectPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* ── Section 6: Powered by Trixon CTA ── */}
         <div className="bg-[#1e1b1b] rounded-2xl p-7 text-center">
           <div className="flex items-center justify-center gap-2 mb-3">
-            <div className="w-5 h-5 bg-[#039a85] rounded-md" />
-            <span className="text-white font-bold text-sm">Trixon</span>
+            <Image
+              src="/light-logo.png"
+              alt="Trixon"
+              width={80}
+              height={22}
+              className="h-5 w-auto object-contain"
+            />
           </div>
           <h2 className="text-white text-lg font-bold mb-2">
             Powered by Trixon
