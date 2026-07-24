@@ -78,8 +78,14 @@ export async function POST(req: NextRequest) {
         user: smtpUser,
         pass: smtpPass,
       },
+      tls: {
+        // Do not fail on self-signed certificates (highly common on local relays/custom SMTP)
+        rejectUnauthorized: false
+      }
     });
 
+    console.info(`[SMTP DIAGNOSTIC] Attempting to send email via ${smtpHost}:${smtpPort} (Secure: ${smtpPort === 465})`);
+    
     await transporter.sendMail({
       from: smtpFrom,
       to: smtpTo,
@@ -87,9 +93,16 @@ export async function POST(req: NextRequest) {
       html: html,
     });
 
+    console.info(`[SMTP DIAGNOSTIC] Email sent successfully to ${smtpTo}`);
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Nodemailer error in /api/send-email:", error);
-    return NextResponse.json({ error: error.message || "Failed to send email" }, { status: 500 });
+    // Return detailed SMTP context in response to help the user diagnose the credentials issue
+    return NextResponse.json({ 
+      error: error.message || "Failed to send email",
+      code: error.code,
+      command: error.command
+    }, { status: 500 });
   }
 }
