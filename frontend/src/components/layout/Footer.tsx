@@ -93,7 +93,7 @@ export function Footer() {
             <ul className="space-y-3">
               <li>
                 <Link
-                  href="#"
+                  href="/privacy"
                   className="text-sm text-ash hover:text-paper-raised transition-colors duration-200"
                 >
                   Privacy Policy
@@ -101,7 +101,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="#"
+                  href="/terms"
                   className="text-sm text-ash hover:text-paper-raised transition-colors duration-200"
                 >
                   Terms of Service
