@@ -39,63 +39,63 @@ export function Navbar() {
   return (
     <nav className="sticky top-0 z-50 bg-obsidian border-b border-white/5">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
+        <div className="relative flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link href="/" className="flex items-center gap-2 group flex-shrink-0 z-10">
             <Image
               src="/light-logo.png"
               alt="Trixon"
-              width={120}
-              height={32}
-              className="h-8 w-auto object-contain transition-opacity duration-200 group-hover:opacity-90"
+              width={140}
+              height={38}
+              className="h-10 w-auto object-contain transition-opacity duration-200 group-hover:opacity-90"
               priority
             />
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
+          {/* Desktop Navigation (Centred relative to viewport) */}
+          <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-8 z-10">
             <Link
               href="/#features"
-              className="text-sm text-[#a39e9f] hover:text-paper-raised transition-colors duration-200"
+              className="text-sm font-medium text-[#a39e9f] hover:text-paper-raised transition-colors duration-200"
             >
               Features
             </Link>
             <Link
               href="/#how-it-works"
-              className="text-sm text-[#a39e9f] hover:text-paper-raised transition-colors duration-200"
+              className="text-sm font-medium text-[#a39e9f] hover:text-paper-raised transition-colors duration-200"
             >
               How it Works
             </Link>
             <Link
               href="/pricing"
-              className="text-sm text-[#a39e9f] hover:text-paper-raised transition-colors duration-200"
+              className="text-sm font-medium text-[#a39e9f] hover:text-paper-raised transition-colors duration-200"
             >
               Pricing
             </Link>
           </div>
 
-          {/* Desktop Auth Buttons */}
-          <div className="hidden md:flex items-center gap-3">
+          {/* Desktop Auth Buttons (Aligned right) */}
+          <div className="hidden md:flex items-center gap-4 z-10">
             {isLoggedIn === null ? (
               <div className="w-20 h-8 animate-pulse bg-paper-raised/5 rounded-lg" />
             ) : isLoggedIn ? (
               <>
                 <Link
                   href="/dashboard"
-                  className="text-sm font-medium bg-paper-raised text-zinc-900 px-5 py-2.5 rounded-lg hover:bg-zinc-100 transition-all duration-200"
+                  className="text-sm font-bold bg-white text-zinc-950 px-4 py-2 rounded-lg hover:bg-zinc-100 transition-all duration-200 shadow-sm"
                 >
                   Dashboard
                 </Link>
                 <Link
                   href="/settings"
-                  className="text-sm text-[#a39e9f] hover:text-paper-raised transition-colors duration-200 px-4 py-2"
+                  className="text-sm font-medium text-[#a39e9f] hover:text-paper-raised transition-colors duration-200 px-3 py-2"
                 >
                   Settings
                 </Link>
                 <button
                   onClick={handleLogout}
                   disabled={isLoggingOut}
-                  className="text-sm text-[#a39e9f] hover:text-red-500 transition-colors duration-200 px-4 py-2 disabled:opacity-50"
+                  className="text-sm font-medium text-[#a39e9f] hover:text-red-400 transition-colors duration-200 px-3 py-2 disabled:opacity-50 flex items-center justify-center"
                 >
                   {isLoggingOut ? <Loader2 className="w-4 h-4 animate-spin" /> : "Log out"}
                 </button>
@@ -104,13 +104,13 @@ export function Navbar() {
               <>
                 <Link
                   href="/login"
-                  className="text-sm text-[#a39e9f] hover:text-paper-raised transition-colors duration-200 px-4 py-2"
+                  className="text-sm font-medium text-[#a39e9f] hover:text-paper-raised transition-colors duration-200 px-3 py-2"
                 >
                   Log in
                 </Link>
                 <Link
                   href="/signup"
-                  className="text-sm font-medium bg-[#039a85] text-paper-raised px-5 py-2.5 rounded-lg hover:bg-[#02816f] transition-all duration-200"
+                  className="text-sm font-bold bg-[#039a85] text-white px-4 py-2 rounded-lg hover:bg-[#02816f] transition-all duration-200 shadow-sm"
                 >
                   Get Started
                 </Link>
