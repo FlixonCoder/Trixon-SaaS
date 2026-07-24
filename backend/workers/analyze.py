@@ -226,7 +226,9 @@ def run_analysis_job(
         if not fetched.files:
             return _fail("No files fetched from repository")
 
-        logger.info(f"[{analysis_id}] Fetched {len(fetched.files)} files")
+        # Detect if empty repository of source code
+        is_empty_repo = not _has_code_files(fetched.files)
+        logger.info(f"[{analysis_id}] Fetched {len(fetched.files)} files. Is empty repo: {is_empty_repo}")
 
         # -----------------------------------------------
         # Step 2: Static extraction
@@ -277,7 +279,9 @@ def run_analysis_job(
         }
 
         # Build layered context (v3.1) — done once, reused per report
-        context_layers = llm_client.build_context_layers(ai_context, extraction=extraction)
+        context_layers = {}
+        if not is_empty_repo:
+            context_layers = llm_client.build_context_layers(ai_context, extraction=extraction)
 
         # -----------------------------------------------
         # Step 4: Generate AI reports using layered context (v3.1)
@@ -288,6 +292,9 @@ def run_analysis_job(
         from concurrent.futures import ThreadPoolExecutor
 
         def _generate_report_thread(report_type: str) -> llm_client.ReportOutput:
+            if is_empty_repo:
+                return _generate_empty_repo_report(report_type)
+
             # Build per-report context using the layered approach
             report_context = llm_client.build_report_context(
                 report_type=report_type,
@@ -524,6 +531,142 @@ def _resolve_selected_reports(
             return valid_prev
 
     return defaults
+
+
+def _has_code_files(files: dict) -> bool:
+    PROGRAMMING_LANGUAGES = {
+        "Python", "TypeScript", "JavaScript", "Go", "Rust", "Java", 
+        "Kotlin", "Ruby", "PHP", "C#", "C++", "C", "Swift", "Dart", 
+        "Elixir", "SQL"
+    }
+    from backend.services.static_extractor import EXT_TO_LANG
+    
+    for filename in files.keys():
+        idx = filename.rfind('.')
+        if idx != -1:
+            ext = filename[idx:]
+            lang = EXT_TO_LANG.get(ext)
+            if lang in PROGRAMMING_LANGUAGES:
+                return True
+    return False
+
+
+def _generate_empty_repo_report(report_type: str) -> "llm_client.ReportOutput":
+    data = {}
+    md = ""
+    
+    if report_type == "executive_summary":
+        data = {
+            "title": "Executive Summary",
+            "paragraphs": [
+                "This repository is currently empty of source code. We found only configuration, documentation, or asset files, but no programming code (such as JavaScript, Python, Go, Java, etc.).",
+                "To get started with Trixon, please add your project's source code files, push them to your repository, and trigger a new analysis.",
+                "Once your code is pushed, Trixon will analyze your architecture, quality, security, and scalability in detail."
+            ],
+            "key_findings": [
+                "No source code files detected in the repository.",
+                "Only non-code files (e.g. README.md, configuration) were found.",
+                "Ready to analyze as soon as you push your code!"
+            ],
+            "score": 0,
+            "one_liner": "An empty repository waiting for code."
+        }
+        md = "# Executive Summary\n\n" + "\n\n".join(data["paragraphs"])
+        
+    elif report_type == "architecture":
+        data = {
+            "title": "Architecture Overview",
+            "overview": "No architecture can be mapped because the repository does not contain any source code files yet.",
+            "components": [],
+            "data_flow": "No data flows are active in an empty repository.",
+            "score": 0
+        }
+        md = f"# Architecture Overview\n\n{data['overview']}"
+        
+    elif report_type == "tech_debt":
+        data = {
+            "title": "Tech Debt Report",
+            "summary": "No technical debt detected because the repository contains no source code.",
+            "issues": [],
+            "score": 0
+        }
+        md = f"# Tech Debt Report\n\n{data['summary']}"
+        
+    elif report_type == "security":
+        data = {
+            "title": "Security Risk Scan",
+            "summary": "No security risks detected. The repository does not contain any executable source code.",
+            "risks": [],
+            "score": 0
+        }
+        md = f"# Security Risk Scan\n\n{data['summary']}"
+        
+    elif report_type == "scalability":
+        data = {
+            "title": "Scalability Assessment",
+            "summary": "Scalability cannot be assessed on an empty repository.",
+            "current_capacity": "No capacity has been defined as there is no code running.",
+            "bottlenecks": [],
+            "positives": [],
+            "score": 0
+        }
+        md = f"# Scalability Assessment\n\n{data['summary']}"
+        
+    elif report_type == "onboarding":
+        data = {
+            "title": "Developer Onboarding Guide",
+            "overview": "This repository is empty of source code.",
+            "setup_steps": [
+                {
+                    "step": "Add source code",
+                    "description": "Create your project files (e.g., index.js, main.py), commit them, and push to GitHub.",
+                    "command": "git add . && git commit -m 'add code' && git push"
+                }
+            ],
+            "key_files": [],
+            "architecture_notes": "No architecture patterns have been established yet.",
+            "gotchas": ["The repository is currently empty."],
+            "score": 0
+        }
+        md = f"# Developer Onboarding Guide\n\n{data['overview']}\n\n### Setup Steps\n\n1. **Add source code**: Create your project files (e.g., index.js, main.py), commit them, and push to GitHub."
+        
+    elif report_type == "investor":
+        data = {
+            "title": "Investor Technical Summary",
+            "headline": "The repository is empty of source code.",
+            "maturity_level": "MVP",
+            "technical_risk": "Low",
+            "strengths": [],
+            "risks": [
+                {
+                    "title": "Empty Repository",
+                    "description": "No source code is present in this repository yet.",
+                    "severity": "Medium"
+                }
+            ],
+            "scalability_outlook": "No code is present to evaluate.",
+            "risk_notes": "The project is in its absolute inception phase with no codebase established.",
+            "recommended_next_hires": ["Lead Developer / Architect"],
+            "score": 0
+        }
+        md = f"# Investor Technical Summary\n\n{data['headline']}\n\n{data['risk_notes']}"
+        
+    elif report_type == "team_readiness":
+        data = {
+            "title": "Team Readiness Report",
+            "codebase_origin": "The repository is empty.",
+            "immediate_hires": [],
+            "score": 0
+        }
+        md = f"# Team Readiness Report\n\n{data['codebase_origin']}"
+        
+    return llm_client.ReportOutput(
+        report_type=report_type,
+        content_json=data,
+        content_markdown=md,
+        score=0,
+        error=None,
+    )
 
 
 def _generate_report_with_context(report_type: str, context_str: str) -> "llm_client.ReportOutput":
