@@ -50,6 +50,8 @@ def extract_and_store_action_items(
 ) -> int:
     """
     Extract action items from report outputs and store them in Supabase.
+    Performs smart deduplication of existing open/in-progress items
+    and auto-resolves any items from processed categories that are no longer found.
 
     Args:
         report_outputs: List of ReportOutput objects from the analysis pipeline
@@ -58,15 +60,39 @@ def extract_and_store_action_items(
         repo_name: Repository name for prompt context
 
     Returns:
-        Number of action items created
+        Number of new action items created
     """
     supabase = get_supabase()
     if supabase is None:
         logger.error(f"[{analysis_id}] Supabase unavailable — skipping action item extraction")
         return 0
 
-    total_created = 0
+    # 1. Fetch all existing action items for this project
+    existing_items = []
+    try:
+        existing_resp = (
+            supabase.table("action_items")
+            .select("*")
+            .eq("project_id", project_id)
+            .execute()
+        )
+        existing_items = existing_resp.data or []
+    except Exception as e:
+        logger.error(f"[{analysis_id}] Failed to fetch existing action items: {e}")
 
+    # Index existing open/in-progress items by (category, title)
+    active_existing = {}
+    for item in existing_items:
+        if item.get("status") in ("open", "in_progress"):
+            key = (item.get("category"), item.get("title"))
+            active_existing[key] = item
+
+    total_created = 0
+    new_findings = []
+    processed_categories = set()
+    matched_existing_ids = set()
+
+    # 2. Extract and match findings
     for output in report_outputs:
         if output.error:
             logger.debug(f"[{analysis_id}] Skipping {output.report_type} — has error")
@@ -80,36 +106,71 @@ def extract_and_store_action_items(
             logger.warning(f"[{analysis_id}] {output.report_type}: content_json is empty — skipping extraction")
             continue
 
+        processed_categories.add(output.report_type)
+
         try:
             items = _extract_findings(output.report_type, content_json, repo_name)
             logger.info(f"[{analysis_id}] Extracted {len(items)} action items from {output.report_type}")
 
-            if not items:
-                logger.warning(
-                    f"[{analysis_id}] {output.report_type}: content_json present but no findings extracted. "
-                    f"Keys present: {list(content_json.keys())}"
-                )
-                continue
-
-            items_to_insert = []
             for item in items:
-                item["analysis_id"] = analysis_id
-                item["project_id"] = project_id
-                item["first_detected_at"] = datetime.now(timezone.utc).isoformat()
-                item["created_at"] = datetime.now(timezone.utc).isoformat()
-                items_to_insert.append(item)
-
-            if items_to_insert:
-                # Batch insert for efficiency
-                result = supabase.table("action_items").insert(items_to_insert).execute()
-                inserted = len(result.data) if result.data else len(items_to_insert)
-                total_created += inserted
-                logger.info(f"[{analysis_id}] Inserted {inserted} action items for {output.report_type}")
+                key = (item["category"], item["title"])
+                if key in active_existing:
+                    # Match found! Update the existing action item's metadata and analysis_id
+                    existing_item = active_existing[key]
+                    matched_existing_ids.add(existing_item["id"])
+                    try:
+                        supabase.table("action_items").update({
+                            "analysis_id": analysis_id,
+                            "description": item["description"],
+                            "severity": item["severity"],
+                            "effort_level": item["effort_level"],
+                            "ai_prompt": item["ai_prompt"],
+                            "file_paths": item["file_paths"],
+                        }).eq("id", existing_item["id"]).execute()
+                    except Exception as u_err:
+                        logger.warning(f"[{analysis_id}] Failed to update matched action item {existing_item['id']}: {u_err}")
+                else:
+                    # No match: it's a new finding!
+                    item["analysis_id"] = analysis_id
+                    item["project_id"] = project_id
+                    item["first_detected_at"] = datetime.now(timezone.utc).isoformat()
+                    item["created_at"] = datetime.now(timezone.utc).isoformat()
+                    new_findings.append(item)
 
         except Exception as e:
             logger.error(f"[{analysis_id}] Action item extraction failed for {output.report_type}: {e}", exc_info=True)
 
-    logger.info(f"[{analysis_id}] Total action items created: {total_created}")
+    # 3. Store new findings in Supabase
+    if new_findings:
+        try:
+            result = supabase.table("action_items").insert(new_findings).execute()
+            inserted = len(result.data) if result.data else len(new_findings)
+            total_created += inserted
+            logger.info(f"[{analysis_id}] Inserted {inserted} new action items")
+        except Exception as i_err:
+            logger.error(f"[{analysis_id}] Failed to insert new action items: {i_err}")
+
+    # 4. Auto-resolve existing open/in-progress items that were NOT matched
+    # and belong to categories that were processed in this run.
+    items_to_resolve = []
+    for item in existing_items:
+        if item.get("status") in ("open", "in_progress"):
+            category = item.get("category")
+            if category in processed_categories and item["id"] not in matched_existing_ids:
+                items_to_resolve.append(item["id"])
+
+    if items_to_resolve:
+        logger.info(f"[{analysis_id}] Auto-resolving {len(items_to_resolve)} action items not found in current run")
+        for item_id in items_to_resolve:
+            try:
+                supabase.table("action_items").update({
+                    "status": "resolved",
+                    "resolved_in_analysis_id": analysis_id,
+                    "resolved_at": datetime.now(timezone.utc).isoformat(),
+                }).eq("id", item_id).execute()
+            except Exception as r_err:
+                logger.error(f"[{analysis_id}] Failed to resolve action item {item_id}: {r_err}")
+
     return total_created
 
 
@@ -123,8 +184,7 @@ def extract_from_report_json(
     """
     Extract action items from a stored report's content_json.
     Used for backfill of existing analyses.
-
-    Returns number of items created.
+    Includes deduplication and auto-resolution for this specific report category.
     """
     if report_type not in EXTRACTABLE_REPORT_TYPES:
         return 0
@@ -133,21 +193,74 @@ def extract_from_report_json(
     if supabase is None:
         return 0
 
+    # 1. Fetch existing action items for this project
+    existing_items = []
+    try:
+        existing_resp = (
+            supabase.table("action_items")
+            .select("*")
+            .eq("project_id", project_id)
+            .execute()
+        )
+        existing_items = existing_resp.data or []
+    except Exception as e:
+        logger.error(f"[backfill] Failed to fetch existing items: {e}")
+
+    # Index open/in-progress items
+    active_existing = {}
+    for item in existing_items:
+        if item.get("status") in ("open", "in_progress"):
+            key = (item.get("category"), item.get("title"))
+            active_existing[key] = item
+
     try:
         items = _extract_findings(report_type, content_json, repo_name)
         if not items:
             logger.info(f"[backfill] {report_type}/{analysis_id[:8]}: no findings to extract")
             return 0
 
-        for item in items:
-            item["analysis_id"] = analysis_id
-            item["project_id"] = project_id
-            item["first_detected_at"] = datetime.now(timezone.utc).isoformat()
-            item["created_at"] = datetime.now(timezone.utc).isoformat()
+        new_findings = []
+        matched_existing_ids = set()
+        count = 0
 
-        result = supabase.table("action_items").insert(items).execute()
-        count = len(result.data) if result.data else len(items)
-        logger.info(f"[backfill] Inserted {count} items for {report_type}/{analysis_id[:8]}")
+        for item in items:
+            key = (item["category"], item["title"])
+            if key in active_existing:
+                existing_item = active_existing[key]
+                matched_existing_ids.add(existing_item["id"])
+                supabase.table("action_items").update({
+                    "analysis_id": analysis_id,
+                    "description": item["description"],
+                    "severity": item["severity"],
+                    "effort_level": item["effort_level"],
+                    "ai_prompt": item["ai_prompt"],
+                    "file_paths": item["file_paths"],
+                }).eq("id", existing_item["id"]).execute()
+            else:
+                item["analysis_id"] = analysis_id
+                item["project_id"] = project_id
+                item["first_detected_at"] = datetime.now(timezone.utc).isoformat()
+                item["created_at"] = datetime.now(timezone.utc).isoformat()
+                new_findings.append(item)
+
+        if new_findings:
+            result = supabase.table("action_items").insert(new_findings).execute()
+            count += len(result.data) if result.data else len(new_findings)
+
+        # Auto-resolve stale items for this report type
+        items_to_resolve = []
+        for item in existing_items:
+            if item.get("status") in ("open", "in_progress"):
+                if item.get("category") == report_type and item["id"] not in matched_existing_ids:
+                    items_to_resolve.append(item["id"])
+
+        for item_id in items_to_resolve:
+            supabase.table("action_items").update({
+                "status": "resolved",
+                "resolved_in_analysis_id": analysis_id,
+                "resolved_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", item_id).execute()
+
         return count
     except Exception as e:
         logger.error(f"[backfill] Failed for {report_type}/{analysis_id[:8]}: {e}", exc_info=True)
