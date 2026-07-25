@@ -373,7 +373,37 @@ async def trigger_analysis(
     if project_resp is None or not project_resp.data:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Check if an analysis is already running for THIS project
+    # -----------------------------------------------
+    # Auto-recover stale/hung analyses (>20 minutes)
+    # -----------------------------------------------
+    # Must run BEFORE the active-check below so stale analyses don't block new runs
+    from datetime import datetime, timedelta, timezone
+    stale_cutoff = (datetime.now(timezone.utc) - timedelta(minutes=20)).isoformat()
+    try:
+        stale_resp = (
+            supabase.table("analyses")
+            .select("id, started_at")
+            .eq("project_id", project_id)
+            .in_("status", ["running", "queued"])
+            .execute()
+        )
+        for stale in (stale_resp.data or []):
+            started = stale.get("started_at") or ""
+            # Auto-fail only if it has been running for >20 minutes
+            if started and started < stale_cutoff:
+                logger.warning(f"Auto-failing stale analysis {stale['id']} (started_at={started})")
+                supabase.table("analyses").update({
+                    "status": "failed",
+                    "error_message": (
+                        "Analysis timed out after 20 minutes — the server was likely "
+                        "interrupted mid-run (Render free tier sleep). Please try again."
+                    ),
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                }).eq("id", stale["id"]).execute()
+    except Exception as e:
+        logger.warning(f"Failed to auto-recover stale analyses: {e}")
+
+    # Check if an analysis is still actively running for THIS project (post stale-recovery)
     running_resp = (
         supabase.table("analyses")
         .select("id")
@@ -392,9 +422,8 @@ async def trigger_analysis(
     # -----------------------------------------------
     # Rate Limiting (Beta Restrictions: 5 analyses/day/user)
     # -----------------------------------------------
-    from datetime import datetime, timedelta, timezone
     one_day_ago = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
-    
+
     # Get all projects for this user to query their analyses
     user_projects_resp = (
         supabase.table("projects")

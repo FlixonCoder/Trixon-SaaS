@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Clock, AlertTriangle } from "lucide-react";
 import { api, type AnalysisStatus } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 
@@ -27,14 +27,19 @@ function getStageLabel(pct: number): string {
   return "Preparing…";
 }
 
+// How long before we show the "taking too long" warning (ms)
+const STALE_WARNING_MS = 20 * 60 * 1000; // 20 minutes
+
 export function AnalysisProgress({ analysisId, projectId }: AnalysisProgressProps) {
   const [analysis, setAnalysis] = useState<AnalysisStatus | null>(null);
   const [progress, setProgress] = useState(2);
   const [error, setError] = useState<string | null>(null);
   const [isQueued, setIsQueued] = useState(true);
+  const [isStale, setIsStale] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval>>(null);
   const runningTickRef = useRef(0);
   const queuedTickRef = useRef(0);
+  const startedAtRef = useRef<number | null>(null);
   const router = useRouter();
   const supabase = createClient();
 
@@ -48,21 +53,39 @@ export function AnalysisProgress({ analysisId, projectId }: AnalysisProgressProp
         setAnalysis(result);
 
         if (result.status === "queued") {
-          // Still waiting for worker — keep progress very low
           queuedTickRef.current += 1;
           setIsQueued(true);
-          setProgress(Math.min(2 + queuedTickRef.current, 8)); // max 8% while queued
+          setProgress(Math.min(2 + queuedTickRef.current, 8));
+
         } else if (result.status === "running") {
-          // Actually processing — now advance progress meaningfully
           setIsQueued(false);
+
+          // Track when it actually started running
+          if (startedAtRef.current === null) {
+            // Use the server's started_at if available, otherwise use now
+            startedAtRef.current = result.started_at
+              ? new Date(result.started_at).getTime()
+              : Date.now();
+          }
+
+          // Check for stale (>20 min running)
+          const elapsedMs = Date.now() - (startedAtRef.current ?? Date.now());
+          if (elapsedMs > STALE_WARNING_MS) {
+            setIsStale(true);
+            clearInterval(intervalRef.current!);
+            return;
+          }
+
           runningTickRef.current += 1;
           const naturalPct = Math.min(10 + runningTickRef.current * 4, 92);
           setProgress(naturalPct);
+
         } else if (result.status === "complete") {
           setIsQueued(false);
           setProgress(100);
           clearInterval(intervalRef.current!);
           setTimeout(() => router.push(`/projects/${projectId}`), 1200);
+
         } else if (result.status === "failed") {
           clearInterval(intervalRef.current!);
           setError(result.error_message || "Analysis failed. Please try again.");
@@ -72,49 +95,113 @@ export function AnalysisProgress({ analysisId, projectId }: AnalysisProgressProp
       }
     };
 
-    poll(); // Run immediately
+    poll();
     intervalRef.current = setInterval(poll, 3000);
     return () => clearInterval(intervalRef.current!);
   }, [analysisId, projectId]);
 
-  if (error) {
+  // ── Stale warning state ──────────────────────────────────────────
+  if (isStale) {
     return (
-      <div className="bg-paper-raised border border-paper-sunken rounded-2xl p-10 text-center max-w-lg mx-auto">
-        <XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-obsidian mb-2">Analysis Failed</h2>
-        <p className="text-sm text-ash mb-6">{error}</p>
-        <button
-          onClick={() => router.push(`/projects/${projectId}`)}
-          className="inline-flex items-center gap-2 bg-zinc-900 text-paper-raised px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors"
-        >
-          Back to Project
-        </button>
+      <div className="bg-white border border-amber-200 shadow-lg rounded-2xl p-10 text-center max-w-lg mx-auto">
+        <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-amber-100">
+          <AlertTriangle className="w-7 h-7 text-amber-500" />
+        </div>
+        <h2 className="text-xl font-bold text-obsidian mb-2">This is taking longer than expected</h2>
+        <p className="text-sm text-ash mb-2 leading-relaxed max-w-sm mx-auto">
+          Your analysis has been running for over 20 minutes. The server may have been interrupted (Render free tier sleeps between requests).
+        </p>
+        <p className="text-xs text-ash/70 mb-6">
+          Your next trigger will automatically clean up this stuck run and start fresh.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <button
+            onClick={() => router.push(`/projects/${projectId}`)}
+            className="px-5 py-2.5 bg-[#1e1b1b] text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors"
+          >
+            Back to Project
+          </button>
+          <button
+            onClick={() => {
+              setIsStale(false);
+              setProgress(2);
+              runningTickRef.current = 0;
+              startedAtRef.current = null;
+              intervalRef.current = setInterval(async () => {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) return;
+                const result = await api.getAnalysis(session.access_token, analysisId);
+                if (result.status === "complete") {
+                  clearInterval(intervalRef.current!);
+                  router.push(`/projects/${projectId}`);
+                } else if (result.status === "failed") {
+                  clearInterval(intervalRef.current!);
+                  setError(result.error_message || "Analysis failed. Please try again.");
+                }
+              }, 5000);
+            }}
+            className="px-5 py-2.5 border border-paper-sunken text-obsidian rounded-lg text-sm font-medium hover:bg-paper-sunken transition-colors"
+          >
+            Keep Waiting
+          </button>
+        </div>
       </div>
     );
   }
 
+  // ── Failed state ─────────────────────────────────────────────────
+  if (error) {
+    // Detect if it's the friendly timeout message
+    const isTimeout = error.includes("timed out") || error.includes("interrupted");
+    return (
+      <div className="bg-white border border-red-100 shadow-lg rounded-2xl p-10 text-center max-w-lg mx-auto">
+        <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-red-100">
+          <XCircle className="w-7 h-7 text-red-500" />
+        </div>
+        <h2 className="text-xl font-bold text-obsidian mb-2">
+          {isTimeout ? "Analysis Interrupted" : "Analysis Failed"}
+        </h2>
+        <p className="text-sm text-ash mb-4 leading-relaxed max-w-sm mx-auto">
+          {isTimeout
+            ? "The server was interrupted mid-analysis (Render free tier spins down between requests). Your next analysis will start fresh automatically."
+            : error}
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <button
+            onClick={() => router.push(`/projects/${projectId}`)}
+            className="px-5 py-2.5 bg-[#1e1b1b] text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors"
+          >
+            Back to Project
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Complete state ───────────────────────────────────────────────
   if (analysis?.status === "complete") {
     return (
-      <div className="bg-paper-raised border border-paper-sunken rounded-2xl p-10 text-center max-w-lg mx-auto">
-        <CheckCircle className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold text-obsidian mb-2">Analysis Complete!</h2>
+      <div className="bg-white border border-paper-sunken shadow-lg rounded-2xl p-10 text-center max-w-lg mx-auto">
+        <CheckCircle className="w-12 h-12 text-[#039a85] mx-auto mb-4" />
+        <h2 className="text-xl font-bold text-obsidian mb-2">Analysis Complete!</h2>
         <p className="text-sm text-ash">Taking you to your dashboard…</p>
       </div>
     );
   }
 
+  // ── Running / Queued state ───────────────────────────────────────
   const stageLabel = isQueued ? "Waiting in queue…" : getStageLabel(progress);
   const showQueueWarning = isQueued && queuedTickRef.current > 40; // ~2 min
 
   return (
-    <div className="bg-paper-raised border border-paper-sunken rounded-2xl p-10 max-w-lg mx-auto">
+    <div className="bg-white border border-paper-sunken shadow-xl rounded-2xl p-10 max-w-lg mx-auto">
       <div className="text-center mb-8">
         {isQueued ? (
           <Clock className="w-10 h-10 text-amber-500 mx-auto mb-4" />
         ) : (
           <Loader2 className="w-10 h-10 text-zinc-800 animate-spin mx-auto mb-4" />
         )}
-        <h2 className="text-xl font-semibold text-obsidian mb-1">
+        <h2 className="text-xl font-bold text-obsidian mb-1">
           {isQueued ? "Queued for analysis" : "Analysing your codebase"}
         </h2>
         <p className="text-sm text-ash">
@@ -138,7 +225,7 @@ export function AnalysisProgress({ analysisId, projectId }: AnalysisProgressProp
         <div className="h-2 bg-paper-sunken rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-1000 ease-out ${
-              isQueued ? "bg-[#F59E0B]" : "bg-zinc-800"
+              isQueued ? "bg-[#F59E0B]" : "bg-[#1e1b1b]"
             }`}
             style={{ width: `${progress}%` }}
           />
@@ -159,7 +246,7 @@ export function AnalysisProgress({ analysisId, projectId }: AnalysisProgressProp
                 }`}
               >
                 {done ? (
-                  <CheckCircle className="w-4 h-4 text-zinc-700 flex-shrink-0" />
+                  <CheckCircle className="w-4 h-4 text-[#039a85] flex-shrink-0" />
                 ) : active ? (
                   <Loader2 className="w-4 h-4 text-zinc-800 animate-spin flex-shrink-0" />
                 ) : (
@@ -176,4 +263,3 @@ export function AnalysisProgress({ analysisId, projectId }: AnalysisProgressProp
     </div>
   );
 }
-

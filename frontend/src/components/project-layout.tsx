@@ -93,16 +93,19 @@ export function ProjectLayout({
       const currentReports = analysis.selected_reports || ["executive_summary", "architecture", "tech_debt"];
       await api.triggerAnalysisWithSelectedReports(session.access_token, project.id, currentReports);
       setReanalyseSuccess(true);
+      // Navigate to the project root — this is the ONLY page that renders AnalysisProgress.
+      // Using router.push instead of window.location.reload() so sub-pages (chat, timeline, etc.)
+      // are correctly redirected to the progress screen rather than reloading with no progress UI.
       setTimeout(() => {
-        window.location.reload();
-      }, 1200);
+        router.push(`/projects/${project.id}`);
+      }, 800);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to start re-analysis";
       setReanalyseError(msg);
     } finally {
       setReanalysing(false);
     }
-  }, [project.id, analysis]);
+  }, [project.id, analysis, router]);
 
   return (
     <div className="space-y-6">
