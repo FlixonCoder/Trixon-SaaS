@@ -93,7 +93,7 @@ export function HeroScreenshot({}: HeroScreenshotProps) {
           </div>
 
           {/* Center: Interactive Tabs */}
-          <div className="flex items-end gap-0.5 ml-6 sm:ml-8 mr-auto h-9 overflow-x-auto scrollbar-none flex-nowrap max-w-[calc(100%-120px)] sm:max-w-none pr-4">
+          <div className="flex items-end gap-0.5 ml-6 sm:ml-8 mr-auto h-9 overflow-x-auto scrollbar-none flex-nowrap pr-0">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
@@ -107,12 +107,6 @@ export function HeroScreenshot({}: HeroScreenshotProps) {
                 <span>{tab.icon} {tab.label}</span>
               </button>
             ))}
-          </div>
-
-          {/* Right: Dynamic URL bar */}
-          <div className="hidden lg:flex items-center gap-2 bg-[#111010] rounded-md px-3 py-1.5 text-[10px] font-mono text-[#5a5458] border border-white/5 mb-2 flex-shrink-0">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#039a85] animate-pulse" />
-            <span>app.trixon.cloud/{activeTab.url}</span>
           </div>
         </div>
 
@@ -137,6 +131,12 @@ export function HeroScreenshot({}: HeroScreenshotProps) {
               />
             </div>
           ))}
+
+          {/* Floating Status Bar in bottom left */}
+          <div className="absolute bottom-3 left-3 bg-[#111010]/85 backdrop-blur-sm border border-white/10 rounded px-2.5 py-1 text-[10px] font-mono text-[#837e80] z-20 pointer-events-none flex items-center gap-1.5 shadow-md">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#039a85] animate-pulse" />
+            <span>app.trixon.cloud/{activeTab.url}</span>
+          </div>
         </div>
       </div>
 
