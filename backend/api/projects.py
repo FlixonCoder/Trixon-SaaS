@@ -378,27 +378,42 @@ async def trigger_analysis(
     # -----------------------------------------------
     # Must run BEFORE the active-check below so stale analyses don't block new runs
     from datetime import datetime, timedelta, timezone
-    stale_cutoff = (datetime.now(timezone.utc) - timedelta(minutes=20)).isoformat()
+    now = datetime.now(timezone.utc)
+    running_stale_cutoff = (now - timedelta(minutes=20)).isoformat()
+    queued_stale_cutoff = (now - timedelta(minutes=10)).isoformat()
     try:
         stale_resp = (
             supabase.table("analyses")
-            .select("id, started_at")
+            .select("id, status, started_at, created_at")
             .eq("project_id", project_id)
             .in_("status", ["running", "queued"])
             .execute()
         )
         for stale in (stale_resp.data or []):
+            s_status = stale.get("status", "")
             started = stale.get("started_at") or ""
-            # Auto-fail only if it has been running for >20 minutes
-            if started and started < stale_cutoff:
-                logger.warning(f"Auto-failing stale analysis {stale['id']} (started_at={started})")
+            created = stale.get("created_at") or ""
+
+            should_fail = False
+            if s_status == "running" and started and started < running_stale_cutoff:
+                # Running analyses stuck for >20 minutes
+                should_fail = True
+            elif s_status == "queued" and created and created < queued_stale_cutoff:
+                # Queued analyses that never started within 10 minutes (worker died)
+                should_fail = True
+
+            if should_fail:
+                logger.warning(
+                    f"Auto-failing stale analysis {stale['id']} "
+                    f"(status={s_status}, started_at={started}, created_at={created})"
+                )
                 supabase.table("analyses").update({
                     "status": "failed",
                     "error_message": (
-                        "Analysis timed out after 20 minutes — the server was likely "
-                        "interrupted mid-run (Render free tier sleep). Please try again."
+                        "Analysis timed out — the server was likely interrupted "
+                        "mid-run (Render free tier sleep). Please try again."
                     ),
-                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                    "completed_at": now.isoformat(),
                 }).eq("id", stale["id"]).execute()
     except Exception as e:
         logger.warning(f"Failed to auto-recover stale analyses: {e}")

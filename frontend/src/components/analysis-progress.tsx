@@ -43,6 +43,26 @@ export function AnalysisProgress({ analysisId, projectId }: AnalysisProgressProp
   const router = useRouter();
   const supabase = createClient();
 
+  const [retrying, setRetrying] = useState(false);
+
+  const handleStartFresh = async () => {
+    setRetrying(true);
+    setError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const currentReports = analysis?.selected_reports || ["executive_summary", "architecture", "tech_debt"];
+      await api.triggerAnalysisWithSelectedReports(session.access_token, projectId, currentReports);
+      window.location.reload();
+    } catch (e) {
+      console.error("Failed to trigger fresh analysis:", e);
+      setError("Failed to trigger a new analysis run. Please try again.");
+      setIsStale(false);
+    } finally {
+      setRetrying(false);
+    }
+  };
+
   useEffect(() => {
     const poll = async () => {
       try {
@@ -103,7 +123,7 @@ export function AnalysisProgress({ analysisId, projectId }: AnalysisProgressProp
   // ── Stale warning state ──────────────────────────────────────────
   if (isStale) {
     return (
-      <div className="bg-white border border-amber-200 shadow-lg rounded-2xl p-10 text-center max-w-lg mx-auto">
+      <div className="bg-white border border-amber-200 shadow-lg rounded-2xl p-10 text-center max-w-lg mx-auto animate-in fade-in duration-300">
         <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-amber-100">
           <AlertTriangle className="w-7 h-7 text-amber-500" />
         </div>
@@ -116,33 +136,18 @@ export function AnalysisProgress({ analysisId, projectId }: AnalysisProgressProp
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
-            onClick={() => router.push(`/projects/${projectId}`)}
-            className="px-5 py-2.5 bg-[#1e1b1b] text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors"
+            onClick={handleStartFresh}
+            disabled={retrying}
+            className="px-5 py-2.5 bg-signal text-white rounded-lg text-sm font-medium hover:bg-signal/90 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
           >
-            Back to Project
+            {retrying && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            Start Fresh Analysis
           </button>
           <button
-            onClick={() => {
-              setIsStale(false);
-              setProgress(2);
-              runningTickRef.current = 0;
-              startedAtRef.current = null;
-              intervalRef.current = setInterval(async () => {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (!session) return;
-                const result = await api.getAnalysis(session.access_token, analysisId);
-                if (result.status === "complete") {
-                  clearInterval(intervalRef.current!);
-                  router.push(`/projects/${projectId}`);
-                } else if (result.status === "failed") {
-                  clearInterval(intervalRef.current!);
-                  setError(result.error_message || "Analysis failed. Please try again.");
-                }
-              }, 5000);
-            }}
-            className="px-5 py-2.5 border border-paper-sunken text-obsidian rounded-lg text-sm font-medium hover:bg-paper-sunken transition-colors"
+            onClick={() => router.push("/dashboard")}
+            className="px-5 py-2.5 bg-[#1e1b1b] text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors cursor-pointer"
           >
-            Keep Waiting
+            Back to Dashboard
           </button>
         </div>
       </div>
@@ -151,10 +156,9 @@ export function AnalysisProgress({ analysisId, projectId }: AnalysisProgressProp
 
   // ── Failed state ─────────────────────────────────────────────────
   if (error) {
-    // Detect if it's the friendly timeout message
     const isTimeout = error.includes("timed out") || error.includes("interrupted");
     return (
-      <div className="bg-white border border-red-100 shadow-lg rounded-2xl p-10 text-center max-w-lg mx-auto">
+      <div className="bg-white border border-red-100 shadow-lg rounded-2xl p-10 text-center max-w-lg mx-auto animate-in fade-in duration-300">
         <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-red-100">
           <XCircle className="w-7 h-7 text-red-500" />
         </div>
@@ -168,10 +172,18 @@ export function AnalysisProgress({ analysisId, projectId }: AnalysisProgressProp
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
-            onClick={() => router.push(`/projects/${projectId}`)}
-            className="px-5 py-2.5 bg-[#1e1b1b] text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors"
+            onClick={handleStartFresh}
+            disabled={retrying}
+            className="px-5 py-2.5 bg-signal text-white rounded-lg text-sm font-medium hover:bg-signal/90 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
           >
-            Back to Project
+            {retrying && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            Start Fresh Analysis
+          </button>
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="px-5 py-2.5 bg-[#1e1b1b] text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors cursor-pointer"
+          >
+            Back to Dashboard
           </button>
         </div>
       </div>

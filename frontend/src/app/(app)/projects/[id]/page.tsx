@@ -69,9 +69,23 @@ export default async function ProjectPage({ params, searchParams }: PageProps) {
   }
 
   const analysis = project.latest_analysis;
-  const isRunning = analysis?.status === "queued" || analysis?.status === "running";
+
+  // Determine if the analysis is stale/hung on the server side
+  const isStale = (() => {
+    if (!analysis) return false;
+    if (analysis.status !== "queued" && analysis.status !== "running") return false;
+    
+    const startTime = analysis.started_at || analysis.created_at;
+    if (!startTime) return false;
+    
+    const elapsed = Date.now() - new Date(startTime).getTime();
+    const threshold = analysis.status === "queued" ? 10 * 60 * 1000 : 20 * 60 * 1000;
+    return elapsed > threshold;
+  })();
+
+  const isRunning = (analysis?.status === "queued" || analysis?.status === "running") && !isStale;
   const isComplete = analysis?.status === "complete";
-  const isFailed = analysis?.status === "failed";
+  const isFailed = analysis?.status === "failed" || isStale;
   const showProgress = isRunning || sp.analyzing === "true";
   const showInterstitial = isComplete && sp.view === "results";
 
@@ -102,17 +116,25 @@ export default async function ProjectPage({ params, searchParams }: PageProps) {
             <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
               <AlertTriangle className="w-8 h-8 text-red-400" />
             </div>
-            <h2 className="text-xl font-bold text-obsidian mb-2 font-display">Analysis Failed</h2>
+            <h2 className="text-xl font-bold text-obsidian mb-2 font-display">
+              {isStale ? "Analysis Interrupted" : "Analysis Failed"}
+            </h2>
             <p className="text-ash text-sm mb-2 leading-relaxed">
-              Something went wrong while analysing your repository. This can happen when the AI provider is temporarily unavailable.
+              {isStale 
+                ? "The analysis timed out or was interrupted. This usually happens when the backend worker restarts." 
+                : "Something went wrong while analysing your repository. This can happen when the AI provider is temporarily unavailable."}
             </p>
-            {analysis.error_message && (
+            {(analysis?.error_message || isStale) && (
               <div className="bg-red-50 border border-red-100 rounded-xl p-4 mb-6 text-left max-w-lg mx-auto">
-                <p className="text-xs text-red-600 font-mono leading-relaxed">{analysis.error_message}</p>
+                <p className="text-xs text-red-600 font-mono leading-relaxed">
+                  {isStale 
+                    ? "Error: Analysis exceeded active execution window (timed out)." 
+                    : analysis?.error_message}
+                </p>
               </div>
             )}
             
-            <ReportSelector projectId={id} buttonText="Retry Analysis" />
+            <ReportSelector projectId={id} buttonText="Start Fresh Analysis" />
 
             <div className="mt-6 flex justify-center">
               <Link
