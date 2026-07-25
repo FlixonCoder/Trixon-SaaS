@@ -165,21 +165,43 @@ async function apiFetch<T>(
   token: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...options.headers,
-    },
-  });
+  const isClient = typeof window !== "undefined";
+  let slowTimer: any = null;
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(error.detail || `API error ${res.status}`);
+  if (isClient) {
+    slowTimer = setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("api-slow-request"));
+    }, 3000);
   }
 
-  return res.json();
+  try {
+    const res = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...options.headers,
+      },
+    });
+
+    if (isClient) {
+      if (slowTimer) clearTimeout(slowTimer);
+      window.dispatchEvent(new CustomEvent("api-request-completed"));
+    }
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(error.detail || `API error ${res.status}`);
+    }
+
+    return res.json();
+  } catch (error) {
+    if (isClient) {
+      if (slowTimer) clearTimeout(slowTimer);
+      window.dispatchEvent(new CustomEvent("api-request-completed"));
+    }
+    throw error;
+  }
 }
 
 export const api = {
